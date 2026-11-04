@@ -1,6 +1,7 @@
-# Builds the site for Linux when a version tag is pushed, and publishes it as a release:
-# the binary with the assets folder it loads, as oxploy-website-x86_64-linux.tar.gz, which
-# oxploy deploys as a GitHub release.
+# Builds the site when a version tag is pushed, and publishes it as a release, as oxploy
+# deploys it: for each machine, the binary with the assets folder it loads, such as
+# oxploy-website-x86_64-linux.tar.gz for a server, and oxploy-website-aarch64-macos.tar.gz
+# for trying it on a Mac.
 name: Release
 
 on:
@@ -11,9 +12,16 @@ permissions:
   contents: write
 
 jobs:
-  linux:
-    # An older Ubuntu, so the binary also runs where glibc is older than on the runner.
-    runs-on: ubuntu-22.04
+  build:
+    strategy:
+      matrix:
+        include:
+          # An older Ubuntu, so the binary also runs where glibc is older than on the runner.
+          - runner: ubuntu-22.04
+            machine: x86_64-linux
+          - runner: macos-latest
+            machine: aarch64-macos
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
 
@@ -42,13 +50,30 @@ jobs:
 
       - name: Package
         run: |
-          tar czf oxploy-website-x86_64-linux.tar.gz -C target/release oxploy-website assets
-          sha256sum oxploy-website-x86_64-linux.tar.gz > oxploy-website-x86_64-linux.tar.gz.sha256
+          file=oxploy-website-${{ matrix.machine }}.tar.gz
+          tar czf "$file" -C target/release oxploy-website assets
+          shasum -a 256 "$file" > "$file.sha256"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.machine }}
+          path: oxploy-website-${{ matrix.machine }}.tar.gz*
+          if-no-files-found: error
+
+  # One release with every machine's files, once all of them are built.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
-          gh release create "$GITHUB_REF_NAME"
-          oxploy-website-x86_64-linux.tar.gz oxploy-website-x86_64-linux.tar.gz.sha256
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --repo "$GITHUB_REPOSITORY"
           --title "oxploy website $GITHUB_REF_NAME" --generate-notes
