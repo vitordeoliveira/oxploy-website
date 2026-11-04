@@ -1,18 +1,23 @@
+pub mod admin;
 pub mod docs;
+pub mod privacy;
 
 use topcoat::{
     Result,
     asset::{AssetBundle, RouterBuilderAssetExt, asset},
     context::Cx,
+    cookie::RouterBuilderCookieExt,
     font::{Font, fontsource::fontsource_font},
     icon::{IconData, icon, iconify::iconify_icon},
     router::{RouterBuilder, RouterBuilderDiscoverExt, Slot, href, layout, module_router, page, request::uri},
     runtime::RouterBuilderRuntimeExt,
+    session::{RouterBuilderSessionExt, SessionConfig},
     tailwind,
     view::{View, attributes, component, view},
 };
 
 use crate::components::button::{ButtonSize, ButtonVariant, button_variants};
+use crate::features::analytics::{self, Analytics};
 use crate::features::docs as guide;
 
 /// oxploy's repository, where its code and releases are.
@@ -38,6 +43,9 @@ pub fn router() -> RouterBuilder {
         // The runtime's procedures and shards, which have no place in the module tree.
         .discover()
         .assets(AssetBundle::load().unwrap())
+        // The admin's session, carried in a cookie.
+        .cookies()
+        .sessions(SessionConfig::default())
         // Lets the browser runtime rerun pages; register it after other layers.
         .runtime()
 }
@@ -49,13 +57,25 @@ fn doc(slug: &str) -> String {
 
 #[layout]
 async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
+    let path = uri(cx).path();
+    let admin = path == "/admin" || path.starts_with("/admin/");
+    // This layout also runs for a missing page or a redirect, so only the site's pages
+    // count as visits. A new page goes here too.
+    let visited = path == "/" || path.strip_prefix("/docs/").is_some_and(|slug| guide::find(slug).is_some());
+    if visited {
+        Analytics::get(cx).record(cx);
+    }
     // A documentation page is named after its title and described by its summary.
-    let page = uri(cx).path().strip_prefix("/docs/").and_then(guide::find);
+    let page = path.strip_prefix("/docs/").and_then(guide::find);
     let title = match page {
         Some(page) => format!("{} · oxploy docs", page.title),
+        None if admin => "Admin · oxploy".to_owned(),
+        None if path == "/privacy" => "Privacy · oxploy".to_owned(),
         None => "oxploy · Deploy Rust apps on your own server".to_owned(),
     };
     let description = page.map_or(DESCRIPTION, |page| page.summary);
+    // The privacy page asks the same itself, and the admin is not a visitor.
+    let ask = !admin && path != "/privacy" && analytics::choice(cx).is_none();
 
     Ok(view! {
         <!DOCTYPE html>
@@ -65,6 +85,9 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>(&title)</title>
                 <meta name="description" content=(description)>
+                if admin {
+                    <meta name="robots" content="noindex">
+                }
                 <meta property="og:title" content=(&title)>
                 <meta property="og:description" content=(description)>
                 <link rel="icon" type="image/svg+xml" href=(asset!("assets/favicon.svg"))>
@@ -77,6 +100,9 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 site_header()
                 <div class="flex flex-1 flex-col">(slot)</div>
                 site_footer()
+                if ask {
+                    privacy::cookie_banner()
+                }
             </body>
         </html>
     })
@@ -143,6 +169,7 @@ async fn site_footer() -> Result<impl View> {
         ("GitHub", REPOSITORY.to_owned()),
         ("Releases", format!("{REPOSITORY}/releases")),
         ("Issues", format!("{REPOSITORY}/issues")),
+        ("Privacy", "/privacy".to_owned()),
     ];
 
     Ok(view! {

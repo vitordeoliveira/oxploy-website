@@ -4,9 +4,15 @@ version = "0.1.1"
 edition = "2024"
 
 [dependencies]
+getrandom = "0.4.3"
+jiff = "0.2.39"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
-tokio = { version = "1.51.1", features = ["macros", "rt-multi-thread"] }
-topcoat = { version = "0.11.0", default-features = false, features = ["asset", "discover", "font-fontsource", "icon-iconify", "router", "runtime", "serve", "tailwind", "ui", "view"] }
+serde = { version = "1.0.229", features = ["derive"] }
+sha2 = "0.10.9"
+toasty = { version = "0.11", features = ["migration", "sqlite"] }
+toasty-cli = "0.11"
+tokio = { version = "1.51.1", features = ["macros", "rt-multi-thread", "time"] }
+topcoat = { version = "0.11.0", default-features = false, features = ["asset", "cookie", "discover", "font-fontsource", "icon-iconify", "router", "runtime", "serve", "session", "tailwind", "ui", "view"] }
 
 [build-dependencies]
 topcoat = { version = "0.11.0", default-features = false, features = ["icon-iconify", "tailwind"] }

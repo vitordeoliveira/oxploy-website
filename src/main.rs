@@ -2,9 +2,25 @@ mod app;
 // Installed components come with variants and helpers the site may not use yet.
 #[allow(dead_code)]
 mod components;
+mod db;
 mod features;
 
 #[tokio::main]
 async fn main() {
-    topcoat::start(app::router().build()).await.unwrap();
+    let db = db::connect().await.unwrap();
+
+    // `cargo run -- toasty migration <command>` manages the database schema.
+    let mut args = std::env::args().skip(1).peekable();
+    if args.peek().is_some_and(|arg| arg == "toasty") {
+        if let Err(error) = toasty_cli::ToastyCli::new(db).parse_from(args).await {
+            eprintln!("{error:#}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    let analytics = features::analytics::Analytics::start(db.clone()).await.unwrap();
+    topcoat::start(app::router().app_context(db).app_context(analytics).build())
+        .await
+        .unwrap();
 }

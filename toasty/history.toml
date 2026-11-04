@@ -1,0 +1,6 @@
+version = 1
+
+[[migrations]]
+id = 8702912321579568471
+name = "0000_create_visits_and_admin.sql"
+snapshot_name = "0000_snapshot.toml"
