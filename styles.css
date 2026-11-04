@@ -1,0 +1,227 @@
+/* Rust, oxploy's theme, the same as the panel's: warm, slightly brown neutrals with a
+   rust-orange primary.
+
+   The theme is a small set of design tokens. Components refer to tokens only,
+   never to raw colors, so a project restyles itself by editing the values in
+   both `:root` blocks below.
+
+     --background              the page background
+     --foreground              text and iconography on the background
+     --card                    cards and panel backgrounds
+     --card-foreground         text and iconography on cards and panels
+     --popover                 floating menu and popover backgrounds
+     --popover-foreground      text and iconography on floating surfaces
+     --muted                   muted surfaces, such as side panels
+     --muted-foreground        secondary text: captions, descriptions, placeholders
+     --primary                 the emphasis color: primary actions, selection, highlights
+     --primary-foreground      text on a primary-filled surface
+     --destructive             destructive actions and error states
+     --destructive-foreground  text on a destructive-filled surface
+     --border                  hairline borders and dividers
+     --input                   the fill of text inputs
+     --ring                    the focus ring
+     --sidebar                 the sidebar background
+     --sidebar-foreground      sidebar text and icons
+     --sidebar-primary         primary actions inside the sidebar
+     --sidebar-primary-foreground  text on sidebar primary actions
+     --sidebar-accent          sidebar hover and selected backgrounds
+     --sidebar-accent-foreground   text on sidebar accents
+     --sidebar-border          sidebar borders and dividers
+     --sidebar-ring            sidebar focus rings
+     --chart-1                 the first series of a chart with several (blue)
+     --chart-2                 the second series of a chart with several (rust)
+     --chart-3                 the third series of a chart with several (aqua)
+     --shadow-xs               a subtle shadow for raised controls
+     --shadow-sm               a shadow for raised surfaces: cards, menus
+
+   Shadows are disabled by default. To enable them, replace the shadow values
+   in both `:root` blocks with the commented values beside them. Use `0 0 #0000`
+   to disable a shadow. Tailwind combines shadows and focus rings in one
+   `box-shadow`, so `none` would also break the ring.
+
+   Components derive hover and press states from their fill or foreground
+   color at reduced opacity. The sidebar has its own accent token for
+   interactive rows, so it can be themed independently.
+
+   The Inter font is not bundled here; provide it with topcoat-font. */
+
+@import "tailwindcss";
+
+/* Scan the project's Rust sources for the Tailwind classes they use. This
+   file is installed at the project root, so `./src` is the crate's source. */
+@source "./src/**/*.rs";
+
+/* Dark mode follows the operating system's color scheme. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+/* Expose the tokens as Tailwind utilities (`bg-background`, `text-primary`,
+   `border-border`, ...). The indirection through plain variables on `:root`
+   is what lets the values swap when the color scheme changes. */
+@theme inline {
+  --font-sans: "Inter", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+}
+
+:root {
+  color-scheme: light;
+  --background: oklch(0.995 0.002 80);
+  --foreground: oklch(0.21 0.012 50);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.012 50);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.012 50);
+  --muted: oklch(0.965 0.006 70);
+  --muted-foreground: oklch(0.5 0.015 55);
+  --primary: oklch(0.55 0.16 40);
+  --primary-foreground: oklch(0.99 0.003 80);
+  --destructive: oklch(0.577 0.215 27);
+  --destructive-foreground: oklch(0.99 0.003 80);
+  --border: oklch(0.905 0.009 70);
+  --input: oklch(0.935 0.007 70);
+  --ring: oklch(0.55 0.16 40);
+  --sidebar: oklch(0.965 0.007 70);
+  --sidebar-foreground: oklch(0.3 0.013 50);
+  --sidebar-primary: oklch(0.55 0.16 40);
+  --sidebar-primary-foreground: oklch(0.99 0.003 80);
+  --sidebar-accent: oklch(0.925 0.01 65);
+  --sidebar-accent-foreground: oklch(0.21 0.012 50);
+  --sidebar-border: oklch(0.9 0.01 70);
+  --sidebar-ring: oklch(0.55 0.16 40);
+  /* Checked together for color-vision deficiencies and contrast on the cards. */
+  --chart-1: #2a78d6;
+  --chart-2: #bb4717;
+  /* Under 3:1 on the cards: its values must also show as text, in a legend or table. */
+  --chart-3: #1baf7a;
+  /* Use these values to enable shadows:
+  --shadow-xs: 0 1px 2px oklch(0.24 0.02 260 / 12%);
+  --shadow-sm:
+    0 1px 2px oklch(0.24 0.02 260 / 10%),
+    0 2px 8px -2px oklch(0.24 0.02 260 / 9%); */
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: oklch(0.17 0.007 55);
+    --foreground: oklch(0.965 0.006 70);
+    --card: oklch(0.2 0.008 55);
+    --card-foreground: oklch(0.965 0.006 70);
+    --popover: oklch(0.2 0.008 55);
+    --popover-foreground: oklch(0.965 0.006 70);
+    --muted: oklch(0.205 0.008 55);
+    --muted-foreground: oklch(0.72 0.014 60);
+    --primary: oklch(0.64 0.17 42);
+    --primary-foreground: oklch(0.17 0.007 55);
+    --destructive: oklch(0.62 0.2 27);
+    --destructive-foreground: oklch(0.99 0.003 80);
+    --border: oklch(0.28 0.009 55);
+    --input: oklch(0.235 0.009 55);
+    --ring: oklch(0.64 0.17 42);
+    --sidebar: oklch(0.135 0.006 55);
+    --sidebar-foreground: oklch(0.9 0.008 70);
+    --sidebar-primary: oklch(0.64 0.17 42);
+    --sidebar-primary-foreground: oklch(0.17 0.007 55);
+    --sidebar-accent: oklch(0.21 0.009 55);
+    --sidebar-accent-foreground: oklch(0.965 0.006 70);
+    --sidebar-border: oklch(0.25 0.009 55);
+    --sidebar-ring: oklch(0.64 0.17 42);
+    --chart-1: #3987e5;
+    --chart-2: #de6129;
+    --chart-3: #199e70;
+    /* Use these values to enable shadows:
+    --shadow-xs: 0 1px 2px oklch(0 0 0 / 35%);
+    --shadow-sm:
+      0 1px 2px oklch(0 0 0 / 35%),
+      0 2px 8px -2px oklch(0 0 0 / 30%); */
+    --shadow-xs: 0 0 #0000;
+    --shadow-sm: 0 0 #0000;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+}
+
+/* The documentation's pages, which come from Markdown and so carry no classes. */
+@layer components {
+  .prose {
+    @apply text-[15px] leading-7;
+  }
+  .prose > * + * {
+    @apply mt-4;
+  }
+  .prose h2 {
+    @apply mt-12 scroll-mt-24 border-b border-border pb-2 text-xl font-semibold tracking-tight;
+  }
+  .prose h3 {
+    @apply mt-8 scroll-mt-24 text-base font-semibold;
+  }
+  .prose h2 + *,
+  .prose h3 + * {
+    @apply mt-3;
+  }
+  .prose a {
+    @apply font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary;
+  }
+  .prose ul {
+    @apply list-disc pl-6 marker:text-muted-foreground;
+  }
+  .prose ol {
+    @apply list-decimal pl-6 marker:text-muted-foreground;
+  }
+  .prose li + li {
+    @apply mt-1.5;
+  }
+  .prose strong {
+    @apply font-semibold;
+  }
+  .prose :not(pre) > code {
+    @apply rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.85em] break-words;
+  }
+  .prose pre {
+    @apply overflow-x-auto rounded-lg border border-border bg-card px-4 py-3 font-mono text-[13px] leading-6;
+  }
+  .prose table {
+    @apply block w-full overflow-x-auto text-sm;
+  }
+  .prose th {
+    @apply border-b border-border py-2 pr-4 text-left font-semibold whitespace-nowrap;
+  }
+  .prose td {
+    @apply border-b border-border py-2 pr-4 align-top;
+  }
+  .prose blockquote {
+    @apply border-l-2 border-primary pl-4 text-muted-foreground;
+  }
+}
