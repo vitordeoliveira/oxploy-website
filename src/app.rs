@@ -2,23 +2,28 @@ pub mod admin;
 pub mod docs;
 pub mod privacy;
 
+use serde_json::{Value, json};
 use topcoat::{
     Result,
-    asset::{AssetBundle, RouterBuilderAssetExt, asset},
+    asset::{AssetBundle, RouterBuilderAssetExt, asset, asset_config},
     context::Cx,
     cookie::RouterBuilderCookieExt,
     font::{Font, fontsource::fontsource_font},
     icon::{IconData, icon, iconify::iconify_icon},
-    router::{RouterBuilder, RouterBuilderDiscoverExt, Slot, href, layout, module_router, page, request::uri},
+    router::{
+        RouterBuilder, RouterBuilderDiscoverExt, Slot, content::sitemap::Sitemap, layout, module_router, page,
+        request::uri, route,
+    },
     runtime::RouterBuilderRuntimeExt,
     session::{RouterBuilderSessionExt, SessionConfig},
     tailwind,
-    view::{View, attributes, component, view},
+    view::{Unescaped, View, attributes, component, view},
 };
 
 use crate::components::button::{ButtonSize, ButtonVariant, button_variants};
 use crate::features::analytics::{self, Analytics};
 use crate::features::docs as guide;
+use crate::features::seo;
 
 /// oxploy's repository, where its code and releases are.
 pub const REPOSITORY: &str = "https://github.com/vitordeoliveira/oxploy";
@@ -33,7 +38,13 @@ const LOGO: IconData = iconify_icon!("lucide:cog");
 const INTER: Font = fontsource_font!(INTER, weight: [400, 500, 600, 700], style: Normal);
 
 /// What the site says about oxploy in a sentence, for search engines and link previews.
-const DESCRIPTION: &str = "oxploy builds your Rust apps from GitHub and runs them on your own server, behind Caddy with HTTPS. One binary, no Docker.";
+const DESCRIPTION: &str = "oxploy is a self-hosted deploy panel for Rust: it builds your apps from GitHub with cargo and runs them on your own server behind Caddy, with HTTPS. No Docker.";
+
+/// What the privacy page says it is about, for search engines.
+const PRIVACY_DESCRIPTION: &str = "What the oxploy site keeps about its visitors: a count of visits made on its own server, and a cookie only for those who accept it.";
+
+/// What the picture link previews show is, for those who cannot see it.
+const PREVIEW_ALT: &str = "oxploy: deploy Rust apps on your own server. Builds with cargo, HTTPS through Caddy, no Docker.";
 
 /// Builds the site's router.
 pub fn router() -> RouterBuilder {
@@ -55,25 +66,53 @@ fn doc(slug: &str) -> String {
     format!("/docs/{slug}")
 }
 
+/// The site's pages that search engines should find, as the sitemap lists them. A new
+/// page goes here too.
+fn listed_pages() -> impl Iterator<Item = String> {
+    ["/".to_owned(), "/privacy".to_owned()]
+        .into_iter()
+        .chain(guide::pages().map(|page| doc(page.slug)))
+}
+
+/// The sitemap, which gives search engines the address of every page.
+#[route(GET "./sitemap.xml")]
+async fn sitemap() -> Result<Sitemap> {
+    Ok(Sitemap::new().urls(listed_pages().map(|path| seo::url(&path))))
+}
+
+/// What crawlers may read, and where the sitemap is.
+#[route(GET "./robots.txt")]
+async fn robots() -> Result<String> {
+    Ok(seo::robots())
+}
+
 #[layout]
 async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     let path = uri(cx).path();
     let admin = path == "/admin" || path.starts_with("/admin/");
     // This layout also runs for a missing page or a redirect, so only the site's pages
-    // count as visits. A new page goes here too.
-    let visited = path == "/" || path.strip_prefix("/docs/").is_some_and(|slug| guide::find(slug).is_some());
-    if visited {
+    // are given to search engines, and count as visits but for the privacy page.
+    let listed = listed_pages().any(|listed| listed == path);
+    if listed && path != "/privacy" {
         Analytics::get(cx).record(cx);
     }
-    // A documentation page is named after its title and described by its summary.
+    // A documentation page is named after what someone would search for.
     let page = path.strip_prefix("/docs/").and_then(guide::find);
     let title = match page {
-        Some(page) => format!("{} · oxploy docs", page.title),
+        Some(page) => format!("{} · oxploy docs", page.search_title),
         None if admin => "Admin · oxploy".to_owned(),
         None if path == "/privacy" => "Privacy · oxploy".to_owned(),
         None => "oxploy · Deploy Rust apps on your own server".to_owned(),
     };
-    let description = page.map_or(DESCRIPTION, |page| page.summary);
+    let description = match page {
+        Some(page) => page.description,
+        None if path == "/privacy" => PRIVACY_DESCRIPTION,
+        None => DESCRIPTION,
+    };
+    // The one address of the page, without the query, such as a link's utm_source, so
+    // search engines do not count the same page twice.
+    let address = seo::url(path);
+    let preview = seo::url(&asset_config(cx).resolve(asset!("assets/preview.jpg")));
     // The privacy page asks the same itself, and the admin is not a visitor.
     let ask = !admin && path != "/privacy" && analytics::choice(cx).is_none();
 
@@ -85,11 +124,25 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>(&title)</title>
                 <meta name="description" content=(description)>
-                if admin {
+                if listed {
+                    <link rel="canonical" href=(&address)>
+                } else {
                     <meta name="robots" content="noindex">
                 }
+                <meta property="og:type" content=(if page.is_some() { "article" } else { "website" })>
+                <meta property="og:site_name" content=(seo::SITE_NAME)>
+                <meta property="og:locale" content="en_US">
+                <meta property="og:url" content=(&address)>
                 <meta property="og:title" content=(&title)>
                 <meta property="og:description" content=(description)>
+                <meta property="og:image" content=(&preview)>
+                <meta property="og:image:width" content="1200">
+                <meta property="og:image:height" content="630">
+                <meta property="og:image:alt" content=(PREVIEW_ALT)>
+                <meta name="twitter:card" content="summary_large_image">
+                // The page's background, from `styles.css`, for the browser's bar.
+                <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fefdfc">
+                <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#120f0d">
                 <link rel="icon" type="image/svg+xml" href=(asset!("assets/favicon.svg"))>
                 <link rel="stylesheet" href=(tailwind::stylesheet!())>
                 topcoat::font::link(font: INTER)
@@ -130,7 +183,7 @@ async fn site_header() -> Result<impl View> {
                 brand()
                 <div class="flex items-center text-sm">
                     <a href="/#features" class="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground sm:block">"Features"</a>
-                    <a href=(href!(docs::page)) class="rounded-md px-3 py-2 text-muted-foreground hover:text-foreground">"Docs"</a>
+                    <a href=(doc(guide::first().slug)) class="rounded-md px-3 py-2 text-muted-foreground hover:text-foreground">"Docs"</a>
                     <a href=(format!("{REPOSITORY}/releases")) class="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground sm:block">"Releases"</a>
                 </div>
                 <div class="ml-auto flex items-center gap-2">
@@ -205,11 +258,73 @@ async fn footer_links(title: &str, links: &[(&str, String)]) -> Result<impl View
     })
 }
 
+/// The questions the home page answers, with their answers.
+const FAQ: [(&str, &str); 6] = [
+    (
+        "Does it need Docker?",
+        "No. oxploy builds apps with cargo on the server and runs each one as a process of its own, listening on 127.0.0.1. Caddy, which runs beside it, sends each domain to its app.",
+    ),
+    (
+        "Which apps can it deploy?",
+        "Rust apps that cargo builds into a binary that listens on the port in PORT. A build script of your own can produce that binary any other way.",
+    ),
+    (
+        "What does the server need?",
+        "Linux on x86_64, git, Rust installed with rustup, a C compiler, and Caddy. oxploy itself is a binary with a folder of assets beside it.",
+    ),
+    (
+        "Can one server run many apps?",
+        "Yes. Each app gets a port of its own and as many domains as you give it, and the monitoring shows what each one takes.",
+    ),
+    (
+        "What happens to my apps when oxploy restarts or updates?",
+        "They keep running. oxploy writes down each app's process, and takes it back when it starts again.",
+    ),
+    (
+        "Where is my data?",
+        "On your server. Each app has a storage folder that deploys keep, and oxploy's own database is a SQLite file.",
+    ),
+];
+
 #[page]
 async fn home() -> Result<impl View> {
     let installation = doc("installation");
+    let home = seo::url("/");
+    // The site, oxploy as an app, and the questions below, for search engines.
+    let data = json!({
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "name": seo::SITE_NAME,
+                "url": home,
+                "description": DESCRIPTION,
+                "inLanguage": "en",
+            },
+            {
+                "@type": "SoftwareApplication",
+                "name": "oxploy",
+                "description": DESCRIPTION,
+                "url": home,
+                "applicationCategory": "DeveloperApplication",
+                "operatingSystem": "Linux",
+                "downloadUrl": format!("{REPOSITORY}/releases/latest"),
+                "installUrl": seo::url(&installation),
+                "sameAs": [REPOSITORY],
+            },
+            {
+                "@type": "FAQPage",
+                "mainEntity": FAQ.iter().map(|(asked, answer)| json!({
+                    "@type": "Question",
+                    "name": asked,
+                    "acceptedAnswer": { "@type": "Answer", "text": answer },
+                })).collect::<Vec<_>>(),
+            },
+        ],
+    });
 
     Ok(view! {
+        structured_data(data: data)
         <main>
             // The opening: what oxploy is, and how to start.
             <section class="relative overflow-hidden border-b border-border">
@@ -334,34 +449,14 @@ async fn home() -> Result<impl View> {
                 <div class="mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_2fr]">
                     section_heading(
                         eyebrow: "FAQ",
-                        title: "Questions",
+                        title: "Frequently asked questions",
                         text: "Something else? Ask in the repository's issues."
                     )
                     <div class="divide-y divide-border border-y border-border">
-                        question(
-                            asked: "Does it need Docker?",
-                            answer: "No. oxploy builds apps with cargo on the server and runs each one as a process of its own, listening on 127.0.0.1. Caddy, which runs beside it, sends each domain to its app."
-                        )
-                        question(
-                            asked: "Which apps can it deploy?",
-                            answer: "Rust apps that cargo builds into a binary that listens on the port in PORT. A build script of your own can produce that binary any other way."
-                        )
-                        question(
-                            asked: "What does the server need?",
-                            answer: "Linux on x86_64, git, Rust installed with rustup, a C compiler, and Caddy. oxploy itself is a binary with a folder of assets beside it."
-                        )
-                        question(
-                            asked: "Can one server run many apps?",
-                            answer: "Yes. Each app gets a port of its own and as many domains as you give it, and the monitoring shows what each one takes."
-                        )
-                        question(
-                            asked: "What happens to my apps when oxploy restarts or updates?",
-                            answer: "They keep running. oxploy writes down each app's process, and takes it back when it starts again."
-                        )
-                        question(
-                            asked: "Where is my data?",
-                            answer: "On your server. Each app has a storage folder that deploys keep, and oxploy's own database is a SQLite file."
-                        )
+                        #[key(*asked)]
+                        for (asked, answer) in FAQ {
+                            question(asked: asked, answer: answer)
+                        }
                     </div>
                 </div>
             </section>
@@ -377,7 +472,7 @@ async fn home() -> Result<impl View> {
                     <a href=(&installation) class=(button_variants(ButtonVariant::Primary, ButtonSize::Lg))>
                         "Read the installation guide"
                     </a>
-                    <a href=(href!(docs::page)) class=(button_variants(ButtonVariant::Outline, ButtonSize::Lg))>
+                    <a href=(doc(guide::first().slug)) class=(button_variants(ButtonVariant::Outline, ButtonSize::Lg))>
                         "Browse the docs"
                     </a>
                 </div>
@@ -429,6 +524,18 @@ async fn deploy_log() -> Result<impl View> {
                 <span class="truncate font-mono">"https://shop-api.203-0-113-7.sslip.io"</span>
             </figcaption>
         </figure>
+    })
+}
+
+/// What a page tells search engines about itself, as JSON-LD, which they read and
+/// nobody sees.
+#[component]
+async fn structured_data(data: Value) -> Result<impl View> {
+    let json = seo::json_ld(&data);
+
+    Ok(view! {
+        // `json_ld` escapes whatever could close the script.
+        <script type="application/ld+json">(Unescaped::new_unchecked(json))</script>
     })
 }
 

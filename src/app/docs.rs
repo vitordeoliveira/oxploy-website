@@ -6,16 +6,16 @@ use topcoat::{
     Result,
     context::Cx,
     icon::{icon, iconify::iconify_icon},
-    router::{Slot, error::redirect, layout, page, request::uri},
+    router::{Slot, error::redirect_permanent, layout, page, request::uri},
     view::{View, attributes, component, view},
 };
 
 use crate::features::docs::{self, SECTIONS};
 
-/// `/docs` opens the first page.
+/// `/docs` opens the first page, for good, so search engines list that page instead.
 #[page]
 pub async fn page() -> Result<()> {
-    Err(redirect(format!("/docs/{}", docs::first().slug)).into())
+    Err(redirect_permanent(format!("/docs/{}", docs::first().slug)).into())
 }
 
 #[layout]

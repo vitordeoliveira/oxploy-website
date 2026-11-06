@@ -1,5 +1,6 @@
 //! A page of the documentation, at `/docs/<slug>`.
 
+use serde_json::json;
 use topcoat::{
     Result,
     context::Cx,
@@ -8,7 +9,9 @@ use topcoat::{
     view::{Unescaped, View, component, view},
 };
 
+use crate::app::structured_data;
 use crate::features::docs::{self, Page};
+use crate::features::seo;
 
 module_param!(pub slug: String, error = not_found);
 
@@ -18,8 +21,37 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let entry = docs::find(slug).ok_or_not_found()?;
     let rendered = entry.rendered();
     let (previous, next) = entry.neighbors();
+    // The page as an article of the documentation, and where it is on the site, for
+    // search engines.
+    let home = seo::url("/");
+    let address = seo::url(&format!("/docs/{}", entry.slug));
+    let data = json!({
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "TechArticle",
+                "headline": entry.search_title,
+                "description": entry.description,
+                "url": address,
+                "mainEntityOfPage": address,
+                "inLanguage": "en",
+                "articleSection": entry.section().title,
+                "about": { "@type": "SoftwareApplication", "name": "oxploy" },
+                "isPartOf": { "@type": "WebSite", "name": seo::SITE_NAME, "url": home },
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    { "@type": "ListItem", "position": 1, "name": seo::SITE_NAME, "item": home },
+                    { "@type": "ListItem", "position": 2, "name": "Docs", "item": seo::url(&format!("/docs/{}", docs::first().slug)) },
+                    { "@type": "ListItem", "position": 3, "name": entry.title },
+                ],
+            },
+        ],
+    });
 
     Ok(view! {
+        structured_data(data: data)
         <article class="min-w-0 flex-1">
             <p class="text-sm font-medium text-primary">(entry.section().title)</p>
             <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">(entry.title)</h1>
