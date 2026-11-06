@@ -1,10 +1,6 @@
 # Builds the site when a version tag is pushed, and publishes it as a release, as oxploy
-# deploys it: for each machine, the binary with the assets folder it loads, such as
-# oxploy-website-x86_64-linux.tar.gz for a server, and oxploy-website-aarch64-macos.tar.gz
-# for trying it on a Mac.
-#
-# Each build adds its files to the release as soon as it is done, so a slow one, such
-# as a Mac waiting for a machine, does not hold the others back.
+# deploys it: oxploy-website-x86_64-linux.tar.gz, the binary with the assets folder it
+# loads, for a Linux server.
 name: Release
 
 on:
@@ -16,19 +12,10 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      # A build that fails leaves the others to finish and publish.
-      fail-fast: false
-      matrix:
-        include:
-          # An older Ubuntu, so the binary also runs where glibc is older than on the runner.
-          - runner: ubuntu-22.04
-            machine: x86_64-linux
-          - runner: macos-latest
-            machine: aarch64-macos
-    runs-on: ${{ matrix.runner }}
+    # An older Ubuntu, so the binary also runs where glibc is older than on the runner.
+    runs-on: ubuntu-22.04
     env:
-      FILE: oxploy-website-${{ matrix.machine }}.tar.gz
+      FILE: oxploy-website-x86_64-linux.tar.gz
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
@@ -64,11 +51,9 @@ jobs:
 
       - name: Publish to the release
         run: |
+          # A rerun finds the release already made.
           if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            # Both builds may get here at once: one makes the release, and the other
-            # finds it made.
-            gh release create "$GITHUB_REF_NAME" --title "oxploy website $GITHUB_REF_NAME" --generate-notes \
-              || gh release view "$GITHUB_REF_NAME" > /dev/null
+            gh release create "$GITHUB_REF_NAME" --title "oxploy website $GITHUB_REF_NAME" --generate-notes
           fi
           # The checksum first, so it is there by the time oxploy sees the file.
           gh release upload "$GITHUB_REF_NAME" "$FILE.sha256" --clobber
