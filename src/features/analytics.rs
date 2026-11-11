@@ -212,6 +212,13 @@ impl Analytics {
     }
 }
 
+impl Analytics {
+    /// The hash a server is kept as, from the random ID it reports in with.
+    pub fn server_key(&self, install_id: &str) -> String {
+        keyed_hash(&self.key, &["server", install_id])
+    }
+}
+
 /// The request's header `name`, or an empty text.
 fn header(cx: &Cx, name: &str) -> String {
     headers(cx)
@@ -224,7 +231,7 @@ fn header(cx: &Cx, name: &str) -> String {
 
 /// The address of whoever sent the request. Behind Cloudflare, it says who that is;
 /// Caddy always says who connected to it.
-fn client_address(cx: &Cx) -> String {
+pub fn client_address(cx: &Cx) -> String {
     [header(cx, "cf-connecting-ip"), header(cx, "x-forwarded-for")]
         .into_iter()
         .map(|value| value.split(',').next().unwrap_or("").trim().to_owned())

@@ -1,11 +1,11 @@
 //! The admin's page, at `/admin`: a form to sign in, and once signed in, how oxploy
-//! grows, by its GitHub stars, its downloads and its installs, and the site's visits of
-//! the last days.
+//! grows, by its GitHub stars, its downloads and its installs, the oxploy servers that
+//! report in, and the site's visits of the last days.
 
 pub mod mcp;
 
-use jiff::Timestamp;
 use jiff::civil::Date;
+use jiff::{Timestamp, Zoned};
 use serde::Deserialize;
 use topcoat::{
     Result,
@@ -25,6 +25,7 @@ use crate::db::db;
 use crate::features::admin;
 use crate::features::analytics::{Accepted, Report};
 use crate::features::growth::{Github, Growth, REPOSITORY, Release, Status};
+use crate::features::servers::Servers;
 
 /// How many releases the growth lists, newest first.
 const LISTED_RELEASES: usize = 10;
@@ -54,16 +55,22 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     } else {
         None
     };
+    let servers = if signed_in {
+        Some(Servers::of_last(&db(cx), days, Zoned::now().date()).await?)
+    } else {
+        None
+    };
     let github = Github::get(cx);
     let releases = github.releases();
     let status = github.status();
 
     Ok(view! {
         <main class="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
-            if let (Some(report), Some(growth)) = (&report, &growth) {
+            if let (Some(report), Some(growth), Some(servers)) = (&report, &growth, &servers) {
                 dashboard(
                     report: report,
                     growth: growth,
+                    servers: servers,
                     releases: &releases,
                     status: &status,
                     days: days
@@ -118,6 +125,7 @@ async fn sign_in_form(set_up: bool, wrong: bool) -> Result<impl View> {
 async fn dashboard(
     report: &Report,
     growth: &Growth,
+    servers: &Servers,
     releases: &[Release],
     status: &Status,
     days: i64,
@@ -157,6 +165,8 @@ async fn dashboard(
             </div>
 
             growth_section(growth: growth, releases: releases, status: status)
+
+            servers_section(servers: servers, installs: growth.installs)
 
             <div class="flex flex-col gap-1 border-t border-border pt-8">
                 <h2 class="text-lg font-semibold tracking-tight">"Visits"</h2>
@@ -313,6 +323,103 @@ async fn growth_section(growth: &Growth, releases: &[Release], status: &Status) 
     })
 }
 
+/// The oxploy servers that report in: how many run, how many are new and stay, their
+/// versions and machines, and what those that share it run.
+#[component]
+async fn servers_section(servers: &Servers, installs: usize) -> Result<impl View> {
+    let usage = &servers.usage;
+    let each_day = servers.days.clone();
+    let active_note = format!("Reported in during the last 7 days, and {} in these days", grouped(servers.active));
+    let new_note = format!("First reported in these days, when the install script ran {} times", grouped(installs));
+    let stayed_note = if servers.week_old == 0 {
+        "Of the new servers a week old, when there are some".to_owned()
+    } else {
+        format!("{} of the {} new servers a week old reported in a week later", grouped(servers.stayed), grouped(servers.week_old))
+    };
+    let failed_note = format!(
+        "{} failed, {}",
+        grouped(usage.failed_deployments as usize),
+        percent(usage.failed_deployments as usize, usage.deployments as usize)
+    );
+
+    Ok(view! {
+        <section class="flex flex-col gap-4 border-t border-border pt-8">
+            <div class="flex flex-col gap-1">
+                <h2 class="text-lg font-semibold tracking-tight">"Servers"</h2>
+                <p class="max-w-2xl text-sm text-muted-foreground">
+                    "The oxploy servers that report in, once a day each, by a random ID that says nothing about the machine or its owner. One that turned reporting off, or cannot reach this site, is not counted."
+                </p>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-3">
+                stat(label: "Running servers", value: grouped(servers.active_week), note: &active_note)
+                stat(label: "New servers", value: grouped(servers.new), note: &new_note)
+                stat(label: "Still running a week later", value: percent(servers.stayed, servers.week_old), note: &stayed_note)
+            </div>
+            count_chart(title: "Servers each day", values: each_day)
+            <div class="grid gap-4 lg:grid-cols-2">
+                tally_card(
+                    title: "Versions",
+                    column: "Version, in the last 7 days",
+                    counted: Some("Servers"),
+                    rows: &servers.versions,
+                    empty: "No server reported in during the last 7 days."
+                )
+                tally_card(
+                    title: "Machines",
+                    column: "Machine, in the last 7 days",
+                    counted: Some("Servers"),
+                    rows: &servers.platforms,
+                    empty: "No server reported in during the last 7 days."
+                )
+            </div>
+            <section class="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+                <div class="flex flex-col gap-1">
+                    <h2 class="font-semibold">"What they run"</h2>
+                    <p class="text-sm text-muted-foreground">
+                        "From the servers of the last 7 days whose super admin shares it, in Settings: numbers only, never names. They say less the fewer share."
+                    </p>
+                </div>
+                if usage.sharing == 0 {
+                    <p class="text-sm text-muted-foreground">"No server shares what it runs yet."</p>
+                } else {
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        measure(
+                            label: "Sharing",
+                            value: grouped(usage.sharing),
+                            note: format!("{} of the servers of the last 7 days", percent(usage.sharing, servers.active_week))
+                        )
+                        measure(
+                            label: "Apps",
+                            value: grouped(usage.apps as usize),
+                            note: format!("{} on the median server", usage.apps_median)
+                        )
+                        measure(
+                            label: "Deployments in 7 days",
+                            value: grouped(usage.deployments as usize),
+                            note: failed_note
+                        )
+                    </div>
+                    <div class="flex justify-between px-3 text-xs text-muted-foreground">
+                        <span>"What a server does"</span>
+                        <span>"Servers"</span>
+                    </div>
+                    <ol class="flex flex-col gap-1">
+                        #[key(*feature)]
+                        for (feature, count) in &usage.features {
+                            share_row(
+                                label: feature,
+                                value: format!("{} · {}", grouped(*count), percent(*count, usage.sharing)),
+                                share: share(*count, usage.sharing),
+                                monospace: false
+                            )
+                        }
+                    </ol>
+                }
+            </section>
+        </section>
+    })
+}
+
 /// A count that only grows, such as the stars, as a line over the days, with the
 /// numbers in a table under it. A day without a count breaks the line.
 #[component]
@@ -447,7 +554,7 @@ async fn count_chart(title: &str, values: Vec<(Date, usize)>) -> Result<impl Vie
 
 /// A list of how many visitors each value has, such as each browser.
 #[component]
-async fn tally_card(title: &str, column: &str, rows: &[(String, usize)], empty: &str) -> Result<impl View> {
+async fn tally_card(title: &str, column: &str, #[default] counted: Option<&str>, rows: &[(String, usize)], empty: &str) -> Result<impl View> {
     Ok(view! {
         <section class="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
             <h2 class="font-semibold">(title)</h2>
@@ -456,7 +563,7 @@ async fn tally_card(title: &str, column: &str, rows: &[(String, usize)], empty: 
             } else {
                 <div class="flex justify-between px-3 text-xs text-muted-foreground">
                     <span>(column)</span>
-                    <span>"Visitors"</span>
+                    <span>(counted.unwrap_or("Visitors"))</span>
                 </div>
                 <ol class="flex flex-col gap-1">
                     #[key(value.clone())]

@@ -14,6 +14,7 @@ lines of its [systemd service](/docs/installation#run-it-as-a-service).
 | `OXPLOY_HTTP_PORT` | `80` | The port Caddy serves HTTP at. |
 | `OXPLOY_HTTPS_PORT` | `443` | The port Caddy serves HTTPS at. |
 | `OXPLOY_PUBLIC_IP` | found on the machine | The server's public IPv4 addresses, separated by commas, for servers behind NAT. |
+| `OXPLOY_TELEMETRY` | on | `off` stops the daily [usage report](/docs/usage-reporting), whatever Settings says. `DO_NOT_TRACK=1` does the same. |
 
 Relative paths start from oxploy's working directory. The time zone the panel shows times
 in is not a variable: [Settings picks it](/docs/installation#pick-the-time-zone).

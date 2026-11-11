@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod api;
 pub mod docs;
 pub mod mcp;
 pub mod privacy;
@@ -12,7 +13,7 @@ use topcoat::{
     font::{Font, fontsource::fontsource_font},
     icon::{IconData, icon, iconify::iconify_icon},
     router::{
-        RouterBuilder, RouterBuilderDiscoverExt, Slot, content::sitemap::Sitemap, layout, module_router, page,
+        BodyLimit, RouterBuilder, RouterBuilderDiscoverExt, Slot, content::sitemap::Sitemap, layout, module_router, page,
         request::uri, route,
     },
     runtime::RouterBuilderRuntimeExt,
@@ -59,6 +60,8 @@ pub fn router() -> RouterBuilder {
         // The runtime's procedures and shards, which have no place in the module tree.
         .discover()
         .assets(AssetBundle::load().unwrap())
+        // A server's report is a few hundred bytes.
+        .layer(BodyLimit::max(api::MAX_REPORT).at("/api"))
         // The admin's session, carried in a cookie.
         .cookies()
         .sessions(SessionConfig::default())

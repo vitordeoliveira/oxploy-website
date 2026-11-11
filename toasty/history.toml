@@ -9,3 +9,8 @@ snapshot_name = "0000_snapshot.toml"
 id = 417582913576993672
 name = "0001_add_github_days_and_install_fetches.sql"
 snapshot_name = "0001_snapshot.toml"
+
+[[migrations]]
+id = 8997765988782286857
+name = "0002_add_servers.sql"
+snapshot_name = "0002_snapshot.toml"

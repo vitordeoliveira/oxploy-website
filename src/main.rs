@@ -20,6 +20,7 @@ async fn main() {
     }
 
     let analytics = features::analytics::Analytics::start(db.clone()).await.unwrap();
+    features::servers::forget_old(&db, jiff::Zoned::now().date()).await.unwrap();
     let github = features::growth::Github::start(db.clone());
     topcoat::start(app::router().app_context(db).app_context(analytics).app_context(github).build())
         .await

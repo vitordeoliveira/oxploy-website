@@ -155,6 +155,13 @@ pub static SECTIONS: &[Section] = &[
                 search_title: "Environment variables of oxploy and its apps",
                 description: "The environment variables oxploy reads when it starts, such as DATABASE_URL and OXPLOY_DATA_DIR, and those each app gets, such as PORT and OXPLOY_STORAGE_DIR.",
             },
+            page! {
+                slug: "usage-reporting",
+                title: "Usage reporting",
+                summary: "What oxploy sends oxploy.com once a day, and how to turn it off.",
+                search_title: "What oxploy reports, and how to turn it off",
+                description: "Once a day, oxploy tells oxploy.com that it runs, with its version and a random ID. See exactly what it sends, share more if you choose, or turn it off.",
+            },
         ],
     },
 ];

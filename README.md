@@ -97,6 +97,23 @@ address and program as a visitor's, and the runs are forgotten after 400 days to
 
 The code is in `src/features/growth.rs`, and the runs' in `src/features/analytics.rs`.
 
+## Servers
+
+Once a day, each oxploy server sends `POST /api/ping` a JSON with a random ID it made the
+first time it started, its version and its machine, and, when its super admin shares it,
+counts of what it runs, such as its apps, domains and deployments. The site answers `204`,
+`400` for a report it cannot read, `413` above 16 KB, and `429` once an address sent 60 in
+an hour. It keeps each server in `servers`, by a hash of its ID made with the visits' key,
+with its first and last day, latest version, machine and counts, and each day it reported
+in, in `server_days`, never the address the report came from. A server not heard from in
+400 days is forgotten, with its days. `docs/usage-reporting.md` tells the servers' owners
+what is sent and kept, and the privacy page says it too.
+
+`/admin` shows them after the growth: the servers that reported in during the last 7 days
+and the period, the new ones and how many still ran a week later, the servers of each day,
+their versions and machines, and what those that share it run. The code is in
+`src/features/servers.rs` and `src/app/api.rs`.
+
 ## MCP
 
 AI agents read the documentation through the [Model Context Protocol](https://modelcontextprotocol.io),
@@ -145,13 +162,15 @@ assets bundled at each deploy. It listens on `127.0.0.1` at `PORT`, as oxploy ex
 | --- | --- |
 | `src/app.rs` | The router, the layout every page shares, the home page, and the sitemap. |
 | `src/app/docs.rs`, `src/app/docs/` | The documentation's layout, with its sidebar, and its pages. |
-| `src/app/admin.rs` | The admin's page: signing in, and the visits. |
+| `src/app/admin.rs` | The admin's page: signing in, the growth, the servers, and the visits. |
+| `src/app/api.rs` | What oxploy servers send, at `/api/ping`. |
 | `src/app/mcp.rs`, `src/app/mcp/`, `src/app/admin/mcp.rs` | The MCP servers, at `/mcp` and `/admin/mcp`, and their tools. |
 | `src/app/privacy.rs` | The privacy page, and the cookie banner. |
 | `src/features/docs.rs`, `src/features/docs/` | The documentation's pages, their order, their rendering from Markdown, their screenshots, and their search. |
 | `src/features/seo.rs` | The site's address, its `robots.txt`, and the structured data in the pages. |
 | `src/features/analytics.rs`, `src/features/admin.rs`, `src/features/mcp.rs` | The visits and the install script's runs, the admin's sign-in, and the owner's MCP token. |
 | `src/features/growth.rs` | oxploy's GitHub stars and downloads, checked every hour. |
+| `src/features/servers.rs` | The oxploy servers that report in, and what the admin sees of them. |
 | `src/db.rs`, `toasty/` | The database, and its migrations. |
 | `src/components/` | Shared UI components. |
 | `docs/` | The documentation's pages, in Markdown. |

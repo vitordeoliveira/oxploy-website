@@ -192,6 +192,7 @@ finish() {
 		fail "oxploy did not start. See why with: journalctl -u oxploy"
 	fi
 	printf 'Behind NAT, set OXPLOY_PUBLIC_IP in %s. Next: https://oxploy.com/docs/github\n' "$SERVICE"
+	printf 'oxploy tells oxploy.com once a day that it runs, with its version and a random ID. See what it sends, or turn it off in Settings: https://oxploy.com/docs/usage-reporting\n'
 }
 
 main() {

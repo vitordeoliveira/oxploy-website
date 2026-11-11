@@ -60,6 +60,17 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
             </section>
 
             <section class="flex flex-col gap-3">
+                <h2 class="text-xl font-semibold tracking-tight">"oxploy servers"</h2>
+                <p class="text-muted-foreground">
+                    "Once a day, each oxploy server tells the site that it runs, unless its super admin turned this off. It sends a random ID it made the first time it started, its version of oxploy and its machine, such as x86_64-linux. If its super admin chose to share it, it also sends what it runs, in numbers only, such as how many apps and deployments it has, never their names. "
+                    <a href="/docs/usage-reporting" class="font-medium text-foreground underline underline-offset-4">"What a server sends"</a>
+                </p>
+                <p class="text-muted-foreground">
+                    "The site keeps the ID only as a code made from it with a secret, the days each server reported in, and its latest version, machine and numbers. It does not keep the address the report came from. A server not heard from in 400 days is deleted, with its days."
+                </p>
+            </section>
+
+            <section class="flex flex-col gap-3">
                 <h2 class="text-xl font-semibold tracking-tight">"What the cookie adds"</h2>
                 <p class="text-muted-foreground">
                     "If you accept, the site keeps a cookie named " <code class="font-mono text-sm text-foreground">"visitor"</code>

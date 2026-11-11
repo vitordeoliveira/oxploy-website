@@ -1,0 +1,339 @@
+version = 1
+
+[schema]
+
+[[schema.tables]]
+id = 0
+name = "analytics_keys"
+primary_key = { columns = [{ table = 0, index = 0 }], index = { table = 0, index = 0 } }
+
+[[schema.tables.columns]]
+id = { table = 0, index = 0 }
+name = "id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 4 }
+auto_increment = true
+
+[[schema.tables.columns]]
+id = { table = 0, index = 1 }
+name = "key"
+ty = "Bytes"
+storage_ty = "Blob"
+
+[[schema.tables.indices]]
+id = { table = 0, index = 0 }
+name = "index_analytics_keys_by_id"
+on = 0
+columns = [{ column = { table = 0, index = 0 }, op = "Eq", scope = "Partition" }]
+unique = true
+primary_key = true
+
+[[schema.tables]]
+id = 1
+name = "install_fetches"
+primary_key = { columns = [{ table = 1, index = 0 }], index = { table = 1, index = 0 } }
+
+[[schema.tables.columns]]
+id = { table = 1, index = 0 }
+name = "id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 4 }
+auto_increment = true
+
+[[schema.tables.columns]]
+id = { table = 1, index = 1 }
+name = "at"
+ty = "I64"
+storage_ty = { Integer = 8 }
+
+[[schema.tables.columns]]
+id = { table = 1, index = 2 }
+name = "machine"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.indices]]
+id = { table = 1, index = 0 }
+name = "index_install_fetches_by_id"
+on = 1
+columns = [{ column = { table = 1, index = 0 }, op = "Eq", scope = "Partition" }]
+unique = true
+primary_key = true
+
+[[schema.tables.indices]]
+id = { table = 1, index = 1 }
+name = "index_install_fetches_by_at"
+on = 1
+columns = [{ column = { table = 1, index = 1 }, op = "Eq", scope = "Partition" }]
+
+[[schema.tables]]
+id = 2
+name = "page_views"
+primary_key = { columns = [{ table = 2, index = 0 }], index = { table = 2, index = 0 } }
+
+[[schema.tables.columns]]
+id = { table = 2, index = 0 }
+name = "id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 4 }
+auto_increment = true
+
+[[schema.tables.columns]]
+id = { table = 2, index = 1 }
+name = "at"
+ty = "I64"
+storage_ty = { Integer = 8 }
+
+[[schema.tables.columns]]
+id = { table = 2, index = 2 }
+name = "path"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 2, index = 3 }
+name = "visitor"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 2, index = 4 }
+name = "referrer"
+ty = "String"
+storage_ty = "Text"
+nullable = true
+
+[[schema.tables.columns]]
+id = { table = 2, index = 5 }
+name = "device"
+ty = "String"
+storage_ty = "Text"
+nullable = true
+
+[[schema.tables.columns]]
+id = { table = 2, index = 6 }
+name = "browser"
+ty = "String"
+storage_ty = "Text"
+nullable = true
+
+[[schema.tables.columns]]
+id = { table = 2, index = 7 }
+name = "campaign"
+ty = "String"
+storage_ty = "Text"
+nullable = true
+
+[[schema.tables.columns]]
+id = { table = 2, index = 8 }
+name = "browser_id"
+ty = "String"
+storage_ty = "Text"
+nullable = true
+
+[[schema.tables.indices]]
+id = { table = 2, index = 0 }
+name = "index_page_views_by_id"
+on = 2
+columns = [{ column = { table = 2, index = 0 }, op = "Eq", scope = "Partition" }]
+unique = true
+primary_key = true
+
+[[schema.tables.indices]]
+id = { table = 2, index = 1 }
+name = "index_page_views_by_at"
+on = 2
+columns = [{ column = { table = 2, index = 1 }, op = "Eq", scope = "Partition" }]
+
+[[schema.tables]]
+id = 3
+name = "github_days"
+primary_key = { columns = [{ table = 3, index = 0 }], index = { table = 3, index = 0 } }
+
+[[schema.tables.columns]]
+id = { table = 3, index = 0 }
+name = "id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 4 }
+auto_increment = true
+
+[[schema.tables.columns]]
+id = { table = 3, index = 1 }
+name = "date"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 3, index = 2 }
+name = "stars"
+ty = "I64"
+storage_ty = { Integer = 8 }
+
+[[schema.tables.columns]]
+id = { table = 3, index = 3 }
+name = "downloads"
+ty = "I64"
+storage_ty = { Integer = 8 }
+nullable = true
+
+[[schema.tables.indices]]
+id = { table = 3, index = 0 }
+name = "index_github_days_by_id"
+on = 3
+columns = [{ column = { table = 3, index = 0 }, op = "Eq", scope = "Partition" }]
+unique = true
+primary_key = true
+
+[[schema.tables.indices]]
+id = { table = 3, index = 1 }
+name = "index_github_days_by_date"
+on = 3
+columns = [{ column = { table = 3, index = 1 }, op = "Eq", scope = "Partition" }]
+unique = true
+
+[[schema.tables]]
+id = 4
+name = "server_days"
+primary_key = { columns = [{ table = 4, index = 0 }], index = { table = 4, index = 0 } }
+
+[[schema.tables.columns]]
+id = { table = 4, index = 0 }
+name = "id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 4 }
+auto_increment = true
+
+[[schema.tables.columns]]
+id = { table = 4, index = 1 }
+name = "date"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 4, index = 2 }
+name = "server_id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 8 }
+
+[[schema.tables.indices]]
+id = { table = 4, index = 0 }
+name = "index_server_days_by_id"
+on = 4
+columns = [{ column = { table = 4, index = 0 }, op = "Eq", scope = "Partition" }]
+unique = true
+primary_key = true
+
+[[schema.tables.indices]]
+id = { table = 4, index = 1 }
+name = "index_server_days_by_date"
+on = 4
+columns = [{ column = { table = 4, index = 1 }, op = "Eq", scope = "Partition" }]
+
+[[schema.tables.indices]]
+id = { table = 4, index = 2 }
+name = "index_server_days_by_server_id"
+on = 4
+columns = [{ column = { table = 4, index = 2 }, op = "Eq", scope = "Partition" }]
+
+[[schema.tables]]
+id = 5
+name = "servers"
+primary_key = { columns = [{ table = 5, index = 0 }], index = { table = 5, index = 0 } }
+
+[[schema.tables.columns]]
+id = { table = 5, index = 0 }
+name = "id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 4 }
+auto_increment = true
+
+[[schema.tables.columns]]
+id = { table = 5, index = 1 }
+name = "key"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 5, index = 2 }
+name = "first_seen"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 5, index = 3 }
+name = "last_seen"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 5, index = 4 }
+name = "version"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 5, index = 5 }
+name = "platform"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 5, index = 6 }
+name = "usage"
+ty = "String"
+storage_ty = "Text"
+nullable = true
+
+[[schema.tables.indices]]
+id = { table = 5, index = 0 }
+name = "index_servers_by_id"
+on = 5
+columns = [{ column = { table = 5, index = 0 }, op = "Eq", scope = "Partition" }]
+unique = true
+primary_key = true
+
+[[schema.tables.indices]]
+id = { table = 5, index = 1 }
+name = "index_servers_by_key"
+on = 5
+columns = [{ column = { table = 5, index = 1 }, op = "Eq", scope = "Partition" }]
+unique = true
+
+[[schema.tables]]
+id = 6
+name = "admin_sessions"
+primary_key = { columns = [{ table = 6, index = 0 }], index = { table = 6, index = 0 } }
+
+[[schema.tables.columns]]
+id = { table = 6, index = 0 }
+name = "id"
+ty = "U64"
+storage_ty = { UnsignedInteger = 4 }
+auto_increment = true
+
+[[schema.tables.columns]]
+id = { table = 6, index = 1 }
+name = "token_hash"
+ty = "Bytes"
+storage_ty = "Blob"
+
+[[schema.tables.columns]]
+id = { table = 6, index = 2 }
+name = "expires_at"
+ty = "I64"
+storage_ty = { Integer = 8 }
+
+[[schema.tables.indices]]
+id = { table = 6, index = 0 }
+name = "index_admin_sessions_by_id"
+on = 6
+columns = [{ column = { table = 6, index = 0 }, op = "Eq", scope = "Partition" }]
+unique = true
+primary_key = true
+
+[[schema.tables.indices]]
+id = { table = 6, index = 1 }
+name = "index_admin_sessions_by_token_hash"
+on = 6
+columns = [{ column = { table = 6, index = 1 }, op = "Eq", scope = "Partition" }]
+unique = true
