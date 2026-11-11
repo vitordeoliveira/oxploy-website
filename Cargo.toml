@@ -14,6 +14,7 @@ toasty = { version = "0.11", features = ["migration", "sqlite"] }
 toasty-cli = "0.11"
 tokio = { version = "1.51.1", features = ["macros", "rt-multi-thread", "time"] }
 topcoat = { version = "0.11.0", default-features = false, features = ["asset", "cookie", "discover", "font-fontsource", "icon-iconify", "router", "runtime", "serve", "session", "sitemap", "tailwind", "ui", "view"] }
+ureq = "3"
 
 [build-dependencies]
 topcoat = { version = "0.11.0", default-features = false, features = ["icon-iconify", "tailwind"] }

@@ -64,6 +64,22 @@ pub struct AnalyticsKey {
     pub key: Vec<u8>,
 }
 
+/// One fetch of the install script by a server, as
+/// `curl -sSL https://oxploy.com/install.sh | sh` makes when it installs oxploy.
+#[derive(Debug, toasty::Model)]
+pub struct InstallFetch {
+    #[key]
+    #[auto]
+    pub id: u64,
+
+    /// When, in seconds since the Unix epoch.
+    #[index]
+    pub at: i64,
+
+    /// Which machine fetched it, as a hash that changes every day, as a visitor's.
+    pub machine: String,
+}
+
 /// How long visits are kept.
 const KEPT_DAYS: i64 = 400;
 
@@ -110,6 +126,10 @@ impl Analytics {
             .delete()
             .exec(&mut db.clone())
             .await?;
+        InstallFetch::filter(InstallFetch::fields().at().lt(cutoff))
+            .delete()
+            .exec(&mut db.clone())
+            .await?;
         Ok(Analytics { db, key })
     }
 
@@ -125,29 +145,13 @@ impl Analytics {
         if original_headers(cx).contains_key("x-topcoat-runtime") {
             return;
         }
-        let header = |name: &str| {
-            headers(cx)
-                .get(name)
-                .and_then(|value| value.to_str().ok())
-                .unwrap_or("")
-                .trim()
-                .to_owned()
-        };
-        let agent = header("user-agent");
+        let agent = header(cx, "user-agent");
         if is_bot(&agent) {
             return;
         }
-        // Behind Cloudflare, it says who the visitor is; Caddy always says who
-        // connected to it.
-        let address = [header("cf-connecting-ip"), header("x-forwarded-for")]
-            .into_iter()
-            .map(|value| value.split(',').next().unwrap_or("").trim().to_owned())
-            .find(|value| !value.is_empty())
-            .or_else(|| remote_addr(cx).map(|address| address.ip().to_string()))
-            .unwrap_or_default();
-        let referrer = referrer_host(&header("referer"), &header("host"));
+        let referrer = referrer_host(&header(cx, "referer"), &header(cx, "host"));
         let now = Zoned::now();
-        let visitor = visitor_hash(&self.key, now.date(), &address, &agent);
+        let visitor = visitor_hash(&self.key, now.date(), &client_address(cx), &agent);
         let browser_id = (choice(cx) == Some(true))
             .then(|| cookies(cx).get(ID_COOKIE))
             .flatten()
@@ -184,6 +188,56 @@ impl Analytics {
             }
         });
     }
+}
+
+impl Analytics {
+    /// Counts a fetch of the install script, when a downloader such as curl makes it,
+    /// as the install command does. A browser that opens the script, or a crawler, does
+    /// not install anything, so it does not count.
+    pub fn record_install(&self, cx: &Cx) {
+        let agent = header(cx, "user-agent");
+        if !is_installer(&agent) {
+            return;
+        }
+        let now = Zoned::now();
+        let at = now.timestamp().as_second();
+        let machine = visitor_hash(&self.key, now.date(), &client_address(cx), &agent);
+        let mut db = self.db.clone();
+        tokio::spawn(async move {
+            let saved = toasty::create!(InstallFetch { at, machine }).exec(&mut db).await;
+            if let Err(error) = saved {
+                eprintln!("oxploy-website: a fetch of the install script could not be saved: {error}");
+            }
+        });
+    }
+}
+
+/// The request's header `name`, or an empty text.
+fn header(cx: &Cx, name: &str) -> String {
+    headers(cx)
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .trim()
+        .to_owned()
+}
+
+/// The address of whoever sent the request. Behind Cloudflare, it says who that is;
+/// Caddy always says who connected to it.
+fn client_address(cx: &Cx) -> String {
+    [header(cx, "cf-connecting-ip"), header(cx, "x-forwarded-for")]
+        .into_iter()
+        .map(|value| value.split(',').next().unwrap_or("").trim().to_owned())
+        .find(|value| !value.is_empty())
+        .or_else(|| remote_addr(cx).map(|address| address.ip().to_string()))
+        .unwrap_or_default()
+}
+
+/// Whether a user agent is a downloader's, such as `curl/8.5.0`, which the install
+/// command runs.
+fn is_installer(agent: &str) -> bool {
+    let agent = agent.to_ascii_lowercase();
+    agent.starts_with("curl/") || agent.starts_with("wget/")
 }
 
 /// The visitor's choice about the site's cookie: `Some(true)` if they accepted it,
@@ -484,6 +538,15 @@ mod tests {
         assert!(is_bot("Mozilla/5.0 (compatible; Googlebot/2.1)"));
         assert!(is_bot("curl/8.7.1"));
         assert!(!is_bot("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0 Safari/537.36"));
+    }
+
+    #[test]
+    fn only_downloaders_install() {
+        assert!(is_installer("curl/8.5.0"));
+        assert!(is_installer("Wget/1.21.4"));
+        assert!(!is_installer(""));
+        assert!(!is_installer("Mozilla/5.0 (compatible; Googlebot/2.1)"));
+        assert!(!is_installer("Mozilla/5.0 (X11; Linux x86_64) Firefox/133.0"));
     }
 
     #[test]

@@ -3,5 +3,6 @@
 pub mod admin;
 pub mod analytics;
 pub mod docs;
+pub mod growth;
 pub mod mcp;
 pub mod seo;

@@ -11,6 +11,7 @@
 //! own in `src/app/mcp/`, with a line in `definitions` and in `call_tool`.
 
 mod common;
+mod growth;
 mod list_docs;
 mod read_doc;
 mod search_docs;
@@ -61,8 +62,9 @@ const INSTRUCTIONS: &str = "oxploy is a self-hosted deploy panel for Rust: it bu
     https://oxploy.com/docs/domains. Answer from what the pages say, and link to them.";
 
 /// What the owner's server adds to [`INSTRUCTIONS`].
-const OWNER_INSTRUCTIONS: &str = " site_visits also reports the visits to the site, as \
-    its admin at https://oxploy.com/admin shows them.";
+const OWNER_INSTRUCTIONS: &str = " site_visits also reports the visits to the site, and \
+    oxploy_growth how oxploy grows: its GitHub stars, which measure its success, its \
+    downloads and its installs, as its admin at https://oxploy.com/admin shows them.";
 
 /// Receives one MCP message from anyone, and answers it with the documentation's tools.
 #[route(POST)]
@@ -156,6 +158,7 @@ fn definitions(access: Access) -> Vec<Value> {
     ];
     if access == Access::Owner {
         tools.push(site_visits::definition());
+        tools.push(growth::definition());
     }
     tools
 }
@@ -171,6 +174,7 @@ async fn call_tool(cx: &Cx, params: &Value, access: Access) -> Result<Value, Fai
         read_doc::NAME => read_doc::call(cx, arguments),
         list_docs::NAME => list_docs::call(arguments),
         site_visits::NAME if access == Access::Owner => site_visits::call(cx, arguments).await,
+        growth::NAME if access == Access::Owner => growth::call(cx, arguments).await,
         _ => return Err(Failure::new(INVALID_PARAMS, format!("Unknown tool: {name}."))),
     };
     match outcome {
@@ -267,9 +271,11 @@ mod tests {
     #[tokio::test]
     async fn gives_the_visits_only_to_the_owner() {
         assert_eq!(names(Access::Anyone).await, ["search_docs", "read_doc", "list_docs"]);
-        assert_eq!(names(Access::Owner).await, ["search_docs", "read_doc", "list_docs", "site_visits"]);
-        let answer = call(Access::Anyone, site_visits::NAME, json!({})).await;
-        assert_eq!(answer["error"]["code"], INVALID_PARAMS);
+        assert_eq!(names(Access::Owner).await, ["search_docs", "read_doc", "list_docs", "site_visits", "oxploy_growth"]);
+        for owners in [site_visits::NAME, growth::NAME] {
+            let answer = call(Access::Anyone, owners, json!({})).await;
+            assert_eq!(answer["error"]["code"], INVALID_PARAMS, "{owners}");
+        }
     }
 
     #[tokio::test]
@@ -308,8 +314,10 @@ mod tests {
             let text = answer["result"]["content"][0]["text"].as_str().unwrap();
             assert!(text.contains(why), "{text}");
         }
-        let answer = call(Access::Owner, site_visits::NAME, json!({ "days": 365 })).await;
-        assert_eq!(answer["result"]["isError"], true, "{answer}");
+        for owners in [site_visits::NAME, growth::NAME] {
+            let answer = call(Access::Owner, owners, json!({ "days": 365 })).await;
+            assert_eq!(answer["result"]["isError"], true, "{answer}");
+        }
     }
 
     #[tokio::test]

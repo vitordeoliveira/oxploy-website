@@ -1,8 +1,10 @@
-//! The admin's page, at `/admin`: a form to sign in, and once signed in, the site's
-//! visits of the last days.
+//! The admin's page, at `/admin`: a form to sign in, and once signed in, how oxploy
+//! grows, by its GitHub stars, its downloads and its installs, and the site's visits of
+//! the last days.
 
 pub mod mcp;
 
+use jiff::Timestamp;
 use jiff::civil::Date;
 use serde::Deserialize;
 use topcoat::{
@@ -22,6 +24,10 @@ use crate::components::input::input;
 use crate::db::db;
 use crate::features::admin;
 use crate::features::analytics::{Accepted, Report};
+use crate::features::growth::{Github, Growth, REPOSITORY, Release, Status};
+
+/// How many releases the growth lists, newest first.
+const LISTED_RELEASES: usize = 10;
 
 /// The periods the page shows, in days.
 const PERIODS: [i64; 3] = [7, 30, 90];
@@ -37,16 +43,31 @@ struct Asked {
 pub async fn page(cx: &Cx) -> Result<impl View> {
     let asked = query_params::<Asked>(cx)?;
     let days = asked.days.filter(|days| PERIODS.contains(days)).unwrap_or(30);
-    let report = if admin::signed_in(cx).await? {
+    let signed_in = admin::signed_in(cx).await?;
+    let report = if signed_in {
         Some(Report::of_last(&db(cx), days).await?)
     } else {
         None
     };
+    let growth = if signed_in {
+        Some(Growth::of_last(&db(cx), days).await?)
+    } else {
+        None
+    };
+    let github = Github::get(cx);
+    let releases = github.releases();
+    let status = github.status();
 
     Ok(view! {
         <main class="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
-            if let Some(report) = &report {
-                dashboard(report: report, days: days)
+            if let (Some(report), Some(growth)) = (&report, &growth) {
+                dashboard(
+                    report: report,
+                    growth: growth,
+                    releases: &releases,
+                    status: &status,
+                    days: days
+                )
             } else {
                 sign_in_form(set_up: admin::is_set_up(), wrong: asked.wrong.is_some())
             }
@@ -94,7 +115,13 @@ async fn sign_in_form(set_up: bool, wrong: bool) -> Result<impl View> {
 
 /// The visits of the last `days` days.
 #[component]
-async fn dashboard(report: &Report, days: i64) -> Result<impl View> {
+async fn dashboard(
+    report: &Report,
+    growth: &Growth,
+    releases: &[Release],
+    status: &Status,
+    days: i64,
+) -> Result<impl View> {
     let per_visitor = if report.visitors == 0 {
         "0".to_owned()
     } else {
@@ -105,10 +132,9 @@ async fn dashboard(report: &Report, days: i64) -> Result<impl View> {
         <div class="flex flex-col gap-8">
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div class="flex flex-col gap-1">
-                    <h1 class="text-2xl font-semibold tracking-tight">"Visits"</h1>
+                    <h1 class="text-2xl font-semibold tracking-tight">"Analytics"</h1>
                     <p class="max-w-2xl text-sm text-muted-foreground">
-                        "The people who opened the site's pages, each counted once a day, without keeping their address, whether they accepted the cookie or not. Programs, such as search engines, are left out. Days are in "
-                        (&report.time_zone) "."
+                        "How oxploy grows, and who reads this site. Days are in " (&report.time_zone) "."
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -128,6 +154,15 @@ async fn dashboard(report: &Report, days: i64) -> Result<impl View> {
                         button(variant: ButtonVariant::Ghost, size: ButtonSize::Sm, attrs: attributes! { type="submit" }, "Sign out")
                     </form>
                 </div>
+            </div>
+
+            growth_section(growth: growth, releases: releases, status: status)
+
+            <div class="flex flex-col gap-1 border-t border-border pt-8">
+                <h2 class="text-lg font-semibold tracking-tight">"Visits"</h2>
+                <p class="max-w-2xl text-sm text-muted-foreground">
+                    "The people who opened the site's pages, each counted once a day, without keeping their address, whether they accepted the cookie or not. Programs, such as search engines, are left out."
+                </p>
             </div>
 
             <div class="grid gap-4 sm:grid-cols-3">
@@ -198,6 +233,215 @@ async fn dashboard(report: &Report, days: i64) -> Result<impl View> {
 
             accepted_card(accepted: &report.accepted, visitors: report.visitors)
         </div>
+    })
+}
+
+/// How oxploy grows: its GitHub stars, which measure its success, the downloads of its
+/// releases, and the machines that ran the install script.
+#[component]
+async fn growth_section(growth: &Growth, releases: &[Release], status: &Status) -> Result<impl View> {
+    let stars_note = match growth.stars_since {
+        Some(since) => format!("{} since {}, when the count began", signed(growth.stars_gained), short_date(since)),
+        None => format!("{} in these days", signed(growth.stars_gained)),
+    };
+    let (downloads, downloads_note) = match (growth.downloads, growth.downloads_gained, growth.downloads_since) {
+        (Some(downloads), Some(gained), Some(since)) => (grouped(downloads as usize), format!("{} since {}, when the count began", signed(gained), short_date(since))),
+        (Some(downloads), Some(gained), None) => (grouped(downloads as usize), format!("{} in these days", signed(gained))),
+        (Some(downloads), None, _) => (grouped(downloads as usize), "Of the releases' archives".to_owned()),
+        (None, _, _) => ("–".to_owned(), "Not counted yet".to_owned()),
+    };
+    let installs_note = format!("{} machines, once a day each", grouped(growth.install_machines));
+    let mut checked = match (&status.error, status.checked_at) {
+        (Some(error), Some(at)) => format!("GitHub answered {}, but not the last time: {error}.", ago(at)),
+        (Some(error), None) => format!("GitHub could not be asked: {error}."),
+        (None, Some(at)) => format!("GitHub answered {}.", ago(at)),
+        (None, None) => "Asking GitHub…".to_owned(),
+    };
+    if let Some(no_history) = &status.no_history {
+        checked = format!("{checked} {no_history}");
+    }
+    let stars: Vec<(Date, Option<i64>)> = growth.days.iter().map(|day| (day.date, day.stars)).collect();
+    let downloads_each_day: Vec<(Date, Option<i64>)> = growth.days.iter().map(|day| (day.date, day.downloads)).collect();
+    let installs: Vec<(Date, usize)> = growth.days.iter().map(|day| (day.date, day.installs)).collect();
+    let releases = &releases[..releases.len().min(LISTED_RELEASES)];
+    let most = releases.iter().map(|release| release.downloads).max().unwrap_or(0).max(0) as usize;
+
+    Ok(view! {
+        <section class="flex flex-col gap-4">
+            <div class="flex flex-col gap-1">
+                <h2 class="text-lg font-semibold tracking-tight">"Growth"</h2>
+                <p class="max-w-2xl text-sm text-muted-foreground">
+                    "The stars of " <a class="font-medium text-foreground underline decoration-foreground/30 underline-offset-4" href=(format!("https://github.com/{REPOSITORY}"))>(REPOSITORY)</a>
+                    ", the measure of oxploy's success, the downloads of its releases from GitHub, and the machines that ran the install script. " (checked)
+                </p>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-3">
+                stat(label: "GitHub stars", value: grouped(growth.stars.max(0) as usize), note: &stars_note)
+                stat(label: "Release downloads", value: downloads, note: &downloads_note)
+                stat(label: "Install script runs", value: grouped(growth.installs), note: &installs_note)
+            </div>
+            <div class="grid gap-4 lg:grid-cols-2">
+                line_chart(title: "Stars", values: stars)
+                line_chart(title: "Release downloads", values: downloads_each_day)
+            </div>
+            <div class="grid gap-4 lg:grid-cols-2">
+                count_chart(title: "Install script runs", values: installs)
+                <section class="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
+                    <h2 class="font-semibold">"Latest releases"</h2>
+                    if releases.is_empty() {
+                        <p class="text-sm text-muted-foreground">"GitHub has not told of any release yet."</p>
+                    } else {
+                        <div class="flex justify-between px-3 text-xs text-muted-foreground">
+                            <span>"Release"</span>
+                            <span>"Downloads of its archives"</span>
+                        </div>
+                        <ol class="flex flex-col gap-1">
+                            #[key(release.tag.clone())]
+                            for release in releases {
+                                share_row(
+                                    label: &release.tag,
+                                    value: grouped(release.downloads.max(0) as usize),
+                                    share: share(release.downloads.max(0) as usize, most),
+                                    monospace: true
+                                )
+                            }
+                        </ol>
+                    }
+                </section>
+            </div>
+        </section>
+    })
+}
+
+/// A count that only grows, such as the stars, as a line over the days, with the
+/// numbers in a table under it. A day without a count breaks the line.
+#[component]
+async fn line_chart(title: &str, values: Vec<(Date, Option<i64>)>) -> Result<impl View> {
+    let peak = values.iter().filter_map(|(_, value)| *value).max().unwrap_or(0).max(0) as usize;
+    let top = nice_ceiling(peak);
+    let count = values.len();
+    let x = |index: usize| if count <= 1 { 50.0 } else { index as f64 * 100.0 / (count - 1) as f64 };
+    let y = |value: i64| 100.0 - share(value.max(0) as usize, top) * 100.0;
+    // The runs of days with a count, each a line and the area under it.
+    let mut runs: Vec<Vec<(f64, f64)>> = vec![Vec::new()];
+    for (index, (_, value)) in values.iter().enumerate() {
+        match value {
+            Some(value) => runs.last_mut().expect("there is a run").push((x(index), y(*value))),
+            None => runs.push(Vec::new()),
+        }
+    }
+    let shapes: Vec<(String, String)> = runs
+        .into_iter()
+        .filter(|run| !run.is_empty())
+        .map(|mut run| {
+            // A single day is a short level line, which a line of one point is not.
+            if run.len() == 1 {
+                let (x, y) = run[0];
+                run = vec![(x - 0.5, y), (x + 0.5, y)];
+            }
+            let line: Vec<String> = run.iter().map(|(x, y)| format!("{x:.2},{y:.2}")).collect();
+            let area = format!("{:.2},100 {} {:.2},100", run[0].0, line.join(" "), run[run.len() - 1].0);
+            (line.join(" "), area)
+        })
+        .collect();
+    let last = count.saturating_sub(1);
+    let labeled = move |index: usize| index == 0 || index == last || index == last / 2;
+
+    Ok(view! {
+        <section class="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+            <h2 class="font-semibold">(title)</h2>
+            <div class="flex gap-3">
+                <div class="flex h-40 flex-col justify-between text-right text-xs text-muted-foreground tabular-nums">
+                    <span class="-translate-y-1/2">(grouped(top))</span>
+                    <span class="-translate-y-1/2">(grouped(top / 2))</span>
+                    <span class="translate-y-1/2">"0"</span>
+                </div>
+                <div class="flex min-w-0 flex-1 flex-col gap-2">
+                    <div class="relative h-40">
+                        <div class="absolute inset-x-0 top-0 border-t border-border/70"></div>
+                        <div class="absolute inset-x-0 top-1/2 border-t border-border/70"></div>
+                        <div class="absolute inset-x-0 bottom-0 border-t border-border"></div>
+                        <svg class="absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                            #[key(index)]
+                            for (index, (line, area)) in shapes.iter().enumerate() {
+                                <polygon class="fill-chart-1/15" points=(area)></polygon>
+                                <polyline class="fill-none stroke-chart-1" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" points=(line)></polyline>
+                            }
+                        </svg>
+                    </div>
+                    <div class="flex text-xs text-muted-foreground">
+                        #[key(index)]
+                        for (index, (date, _)) in values.iter().enumerate() {
+                            <span class="flex-1 text-center whitespace-nowrap">
+                                if labeled(index) { (short_date(*date)) }
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+            <details class="text-sm">
+                <summary class="cursor-pointer text-muted-foreground hover:text-foreground">"Show the numbers"</summary>
+                <table class="mt-3 w-full text-left tabular-nums">
+                    <thead class="text-xs text-muted-foreground">
+                        <tr><th class="py-1.5 font-medium">"Day"</th><th class="py-1.5 text-right font-medium">(title)</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        #[key(date.to_string())]
+                        for (date, value) in values.iter().rev() {
+                            <tr>
+                                <td class="py-1.5">(long_date(*date))</td>
+                                <td class="py-1.5 text-right">(value.map_or("–".to_owned(), |value| grouped(value.max(0) as usize)))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </details>
+        </section>
+    })
+}
+
+/// A count of each day, such as the install script's runs, as bars, with the numbers
+/// in a table under them.
+#[component]
+async fn count_chart(title: &str, values: Vec<(Date, usize)>) -> Result<impl View> {
+    let top = nice_ceiling(values.iter().map(|(_, count)| *count).max().unwrap_or(0));
+    let height = move |count: usize| format!("height: {:.1}%", share(count, top) * 100.0);
+    let last = values.len().saturating_sub(1);
+    let labeled = move |index: usize| index == 0 || index == last || index == last / 2;
+
+    Ok(view! {
+        <section class="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+            <h2 class="font-semibold">(title)</h2>
+            <div class="flex gap-3">
+                <div class="flex h-40 flex-col justify-between text-right text-xs text-muted-foreground tabular-nums">
+                    <span class="-translate-y-1/2">(grouped(top))</span>
+                    <span class="-translate-y-1/2">(grouped(top / 2))</span>
+                    <span class="translate-y-1/2">"0"</span>
+                </div>
+                <div class="flex min-w-0 flex-1 flex-col gap-2">
+                    <div class="relative h-40">
+                        <div class="absolute inset-x-0 top-0 border-t border-border/70"></div>
+                        <div class="absolute inset-x-0 top-1/2 border-t border-border/70"></div>
+                        <div class="absolute inset-0 flex items-end gap-0.5 border-b border-border">
+                            #[key(date.to_string())]
+                            for (date, count) in &values {
+                                <div class="flex h-full flex-1 items-end justify-center rounded-t hover:bg-foreground/5" title=(format!("{}: {count}", long_date(*date)))>
+                                    <span class="w-full max-w-4 rounded-t bg-chart-1" style=(height(*count))></span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="flex text-xs text-muted-foreground">
+                        #[key(index)]
+                        for (index, (date, _)) in values.iter().enumerate() {
+                            <span class="flex-1 text-center whitespace-nowrap">
+                                if labeled(index) { (short_date(*date)) }
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </section>
     })
 }
 
@@ -408,18 +652,41 @@ fn percent(count: usize, of: usize) -> String {
     }
 }
 
-/// The smallest of 1, 2 or 5 times a power of ten that is at least `count`, so the
-/// axis reads in round numbers.
+/// The smallest of 1, 2 or 5 times a power of ten that is at least `count`, and whose
+/// half is a whole number too, so the axis and its middle read in round numbers.
 fn nice_ceiling(count: usize) -> usize {
     let mut power = 1;
     loop {
         for step in [1, 2, 5] {
-            if step * power >= count.max(1) {
-                return step * power;
+            let top = step * power;
+            if top >= count.max(1) && top % 2 == 0 {
+                return top;
             }
         }
         power *= 10;
     }
+}
+
+/// A change with its sign, such as `+12`, `0` or `-3`.
+fn signed(change: i64) -> String {
+    let size = grouped(change.unsigned_abs() as usize);
+    match change.signum() {
+        1 => format!("+{size}"),
+        -1 => format!("-{size}"),
+        _ => size,
+    }
+}
+
+/// How long ago `at` was, such as `5 minutes ago`.
+fn ago(at: Timestamp) -> String {
+    let seconds = (Timestamp::now().as_second() - at.as_second()).max(0);
+    let (count, unit) = match seconds {
+        0..60 => return "just now".to_owned(),
+        60..3600 => (seconds / 60, "minute"),
+        3600..86400 => (seconds / 3600, "hour"),
+        _ => (seconds / 86400, "day"),
+    };
+    format!("{count} {unit}{} ago", if count == 1 { "" } else { "s" })
 }
 
 /// `count` with its thousands apart, such as `12,345`.
@@ -454,11 +721,20 @@ mod tests {
 
     #[test]
     fn axes_read_in_round_numbers() {
-        assert_eq!(nice_ceiling(0), 1);
-        assert_eq!(nice_ceiling(3), 5);
+        assert_eq!(nice_ceiling(0), 2);
+        assert_eq!(nice_ceiling(1), 2);
+        assert_eq!(nice_ceiling(3), 10);
         assert_eq!(nice_ceiling(7), 10);
+        assert_eq!(nice_ceiling(40), 50);
         assert_eq!(nice_ceiling(130), 200);
         assert_eq!(nice_ceiling(1_000), 1_000);
+    }
+
+    #[test]
+    fn changes_carry_their_sign() {
+        assert_eq!(signed(12), "+12");
+        assert_eq!(signed(0), "0");
+        assert_eq!(signed(-1234), "-1,234");
     }
 
     #[test]

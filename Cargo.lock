@@ -1515,6 +1515,7 @@ dependencies = [
  "toasty-cli",
  "tokio",
  "topcoat",
+ "ureq",
 ]
 
 [[package]]

@@ -84,9 +84,11 @@ async fn sitemap() -> Result<Sitemap> {
     Ok(Sitemap::new().urls(listed_pages().map(|path| seo::url(&path))))
 }
 
-/// The script that installs oxploy, which `INSTALL` pipes to a shell.
+/// The script that installs oxploy, which `INSTALL` pipes to a shell. Each fetch by
+/// curl or wget counts as an install.
 #[route(GET "./install.sh")]
-async fn install_script() -> Result<String> {
+async fn install_script(cx: &Cx) -> Result<String> {
+    Analytics::get(cx).record_install(cx);
     Ok(INSTALL_SCRIPT.to_owned())
 }
 

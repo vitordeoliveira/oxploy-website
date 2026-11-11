@@ -4,3 +4,8 @@ version = 1
 id = 8702912321579568471
 name = "0000_create_visits_and_admin.sql"
 snapshot_name = "0000_snapshot.toml"
+
+[[migrations]]
+id = 417582913576993672
+name = "0001_add_github_days_and_install_fetches.sql"
+snapshot_name = "0001_snapshot.toml"

@@ -52,6 +52,14 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
             </section>
 
             <section class="flex flex-col gap-3">
+                <h2 class="text-xl font-semibold tracking-tight">"The install script"</h2>
+                <p class="text-muted-foreground">
+                    "When a server fetches " <code class="font-mono text-sm text-foreground">"install.sh"</code>
+                    " with curl or wget, to install oxploy, the site counts it, with when it was fetched and a code made from the server's address and its program, mixed with a secret and the day, as for a visit. Nothing else is kept, and the counts are deleted after 400 days too."
+                </p>
+            </section>
+
+            <section class="flex flex-col gap-3">
                 <h2 class="text-xl font-semibold tracking-tight">"What the cookie adds"</h2>
                 <p class="text-muted-foreground">
                     "If you accept, the site keeps a cookie named " <code class="font-mono text-sm text-foreground">"visitor"</code>

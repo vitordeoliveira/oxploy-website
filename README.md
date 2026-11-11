@@ -79,6 +79,24 @@ After changing a model, generate one with
 `cargo run -- toasty migration generate --name <what_changed>`. Visits older than 400
 days are forgotten.
 
+## Growth
+
+`/admin` first shows how oxploy grows. Its measure of success is the stars of
+`vitordeoliveira/oxploy` on GitHub; it also shows the downloads of the releases' archives
+on GitHub, by those who install or update oxploy, each release's, and the runs of the
+install script. The periods are the visits', and the days are in the same time zone.
+
+GitHub only tells the stars and downloads as they are now, so the site asks it every hour
+and keeps each day's, in `github_days`. It also fills in the stars of the days before it
+watched, from when each was given, which GitHub tells only a signed-in client: set
+`GITHUB_TOKEN` to a token that can read public repositories, which also lifts GitHub's
+limit of 60 requests an hour. Without it, the stars count from the site's first check,
+and `/admin` says so. A run of the install script is a fetch of `/install.sh` by curl or
+wget, as the install command makes; each machine counts once a day, by a hash of its
+address and program as a visitor's, and the runs are forgotten after 400 days too.
+
+The code is in `src/features/growth.rs`, and the runs' in `src/features/analytics.rs`.
+
 ## MCP
 
 AI agents read the documentation through the [Model Context Protocol](https://modelcontextprotocol.io),
@@ -95,7 +113,7 @@ claude mcp add --transport http oxploy-docs https://oxploy.com/mcp
 ```
 
 `/admin/mcp` is the owner's, and also has `site_visits`, the visits of the last 1 to 90
-days as `/admin` shows them. It takes the token in `OXPLOY_MCP_TOKEN`, sent as
+days as `/admin` shows them, and `oxploy_growth`, the stars, downloads and install runs. It takes the token in `OXPLOY_MCP_TOKEN`, sent as
 `Authorization: Bearer <token>`, and a missing or wrong one gets a 401 after a second;
 without the variable, nobody gets in. oxploy reaches it: turn MCP on in the site's
 **MCP** tab at the path `/admin/mcp`, not the default `/mcp`, since Caddy then hides the
@@ -132,7 +150,8 @@ assets bundled at each deploy. It listens on `127.0.0.1` at `PORT`, as oxploy ex
 | `src/app/privacy.rs` | The privacy page, and the cookie banner. |
 | `src/features/docs.rs`, `src/features/docs/` | The documentation's pages, their order, their rendering from Markdown, their screenshots, and their search. |
 | `src/features/seo.rs` | The site's address, its `robots.txt`, and the structured data in the pages. |
-| `src/features/analytics.rs`, `src/features/admin.rs`, `src/features/mcp.rs` | The visits, the admin's sign-in, and the owner's MCP token. |
+| `src/features/analytics.rs`, `src/features/admin.rs`, `src/features/mcp.rs` | The visits and the install script's runs, the admin's sign-in, and the owner's MCP token. |
+| `src/features/growth.rs` | oxploy's GitHub stars and downloads, checked every hour. |
 | `src/db.rs`, `toasty/` | The database, and its migrations. |
 | `src/components/` | Shared UI components. |
 | `docs/` | The documentation's pages, in Markdown. |
