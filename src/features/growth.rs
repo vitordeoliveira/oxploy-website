@@ -57,6 +57,8 @@ pub struct Release {
     /// Its tag, such as `v0.9.0`.
     pub tag: String,
     pub downloads: i64,
+    /// Whether GitHub marks it a pre-release, which is not the latest.
+    pub prerelease: bool,
 }
 
 /// What the latest check saw, which the days do not keep.
@@ -117,6 +119,11 @@ impl Github {
     /// The releases as the latest check saw them, newest first.
     pub fn releases(&self) -> Vec<Release> {
         self.latest().releases.clone()
+    }
+
+    /// The tag of oxploy's latest release, such as `v0.9.1`, once GitHub told it.
+    pub fn latest_release(&self) -> Option<String> {
+        latest_release(&self.latest().releases)
     }
 
     /// How the checks of GitHub go.
@@ -265,9 +272,15 @@ fn parse_releases(listed: &Value) -> Vec<Release> {
                 .filter(|asset| asset["name"].as_str().is_some_and(|name| name.ends_with(".tar.gz")))
                 .filter_map(|asset| asset["download_count"].as_i64())
                 .sum();
-            Some(Release { tag, downloads })
+            let prerelease = release["prerelease"].as_bool().unwrap_or(false);
+            Some(Release { tag, downloads, prerelease })
         })
         .collect()
+}
+
+/// The newest release that is not a pre-release.
+fn latest_release(releases: &[Release]) -> Option<String> {
+    releases.iter().find(|release| !release.prerelease).map(|release| release.tag.clone())
 }
 
 /// When each stargazer of GitHub's list gave their star.
@@ -463,6 +476,9 @@ mod tests {
     #[test]
     fn counts_the_archives_of_published_releases() {
         let listed = json!([
+            { "tag_name": "v0.10.0-rc.1", "draft": false, "prerelease": true, "assets": [
+                { "name": "oxploy-x86_64-linux.tar.gz", "download_count": 1 },
+            ] },
             { "tag_name": "v0.9.1", "draft": false, "assets": [
                 { "name": "oxploy-x86_64-linux.tar.gz", "download_count": 7 },
                 { "name": "oxploy-x86_64-linux.tar.gz.sha256", "download_count": 9 },
@@ -475,13 +491,18 @@ mod tests {
                 { "name": "oxploy-aarch64-macos.tar.gz", "download_count": 2 },
             ] },
         ]);
+        let releases = parse_releases(&listed);
         assert_eq!(
-            parse_releases(&listed),
+            releases,
             [
-                Release { tag: "v0.9.1".to_owned(), downloads: 7 },
-                Release { tag: "v0.9.0".to_owned(), downloads: 33 },
+                Release { tag: "v0.10.0-rc.1".to_owned(), downloads: 1, prerelease: true },
+                Release { tag: "v0.9.1".to_owned(), downloads: 7, prerelease: false },
+                Release { tag: "v0.9.0".to_owned(), downloads: 33, prerelease: false },
             ]
         );
+        // A pre-release is not the latest.
+        assert_eq!(latest_release(&releases).as_deref(), Some("v0.9.1"));
+        assert_eq!(latest_release(&[]), None);
     }
 
     #[test]

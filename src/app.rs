@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use topcoat::{
     Result,
     asset::{AssetBundle, RouterBuilderAssetExt, asset, asset_config},
-    context::Cx,
+    context::{Cx, try_app_context},
     cookie::RouterBuilderCookieExt,
     font::{Font, fontsource::fontsource_font},
     icon::{IconData, icon, iconify::iconify_icon},
@@ -24,6 +24,7 @@ use topcoat::{
 use crate::components::button::{ButtonSize, ButtonVariant, button_variants};
 use crate::features::analytics::{self, Analytics};
 use crate::features::docs as guide;
+use crate::features::growth::Github;
 use crate::features::seo;
 
 /// oxploy's repository, where its code and releases are.
@@ -127,6 +128,8 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     let preview = seo::url(&asset_config(cx).resolve(asset!("assets/preview.jpg")));
     // The privacy page asks the same itself, and the admin is not a visitor.
     let ask = !admin && path != "/privacy" && analytics::choice(cx).is_none();
+    // oxploy's latest release, once GitHub told it.
+    let latest = try_app_context::<Github>(cx).and_then(Github::latest_release);
 
     Ok(view! {
         <!DOCTYPE html>
@@ -164,7 +167,7 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
             <body class="flex min-h-svh flex-col">
                 site_header()
                 <div class="flex flex-1 flex-col">(slot)</div>
-                site_footer()
+                site_footer(latest: latest.clone())
                 if ask {
                     privacy::cookie_banner()
                 }
@@ -218,7 +221,7 @@ async fn site_header() -> Result<impl View> {
 
 /// The links at the foot of every page.
 #[component]
-async fn site_footer() -> Result<impl View> {
+async fn site_footer(latest: Option<String>) -> Result<impl View> {
     let product = [
         ("Features", "/#features".to_owned()),
         ("How it works", "/#how-it-works".to_owned()),
@@ -249,6 +252,18 @@ async fn site_footer() -> Result<impl View> {
                 footer_links(title: "Product", links: &product)
                 footer_links(title: "Docs", links: &guides)
                 footer_links(title: "Project", links: &project)
+            </div>
+            <div class="border-t border-border">
+                <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 text-xs text-muted-foreground sm:px-6">
+                    if let Some(latest) = &latest {
+                        <a href=(format!("{REPOSITORY}/releases/tag/{latest}")) class="hover:text-foreground">
+                            "Latest oxploy release: " <span class="font-mono">(latest)</span>
+                        </a>
+                    } else {
+                        <span></span>
+                    }
+                    <span>"This site: " <span class="font-mono">"v" (env!("CARGO_PKG_VERSION"))</span></span>
+                </div>
             </div>
         </footer>
     })
