@@ -16,8 +16,10 @@ press **Update now**. oxploy:
 The apps keep running, and the pages you have open reload on the new version. If a step
 fails, the panel says why, keeps running the version it had, and offers to try again.
 
-**Settings** shows the version the panel runs and the latest release, and looks for a new
-one on demand.
+**Settings** shows the version the panel runs and the latest release, and **Check for
+updates** asks GitHub for a new one on demand, without reloading the page.
+
+![The Version card in Settings, up to date](settings-version)
 
 ## The folder must be oxploy's
 

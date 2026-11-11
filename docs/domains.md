@@ -10,9 +10,25 @@ them, as after a restart.
 2. Add the domain in the **Domains** tab, such as `shop.example.com`.
 3. The check beside it says whether the domain points here, elsewhere, or nowhere yet.
 
+![The Domains tab, with two domains that point here, one of them the default](domains)
+
 Caddy gets the certificate the first time someone opens the domain, once it points here.
 Names under `localhost`, such as `shop.localhost`, get a certificate from Caddy itself,
 for trying things on your own machine.
+
+### Behind Cloudflare's proxy
+
+With Cloudflare's proxy on, Cloudflare answers for the name with addresses of its own and
+passes the requests on to the address set at Cloudflare, which oxploy cannot check. The
+check then says the domain goes through Cloudflare's proxy. Set Cloudflare's SSL/TLS mode
+to **Full (strict)**, since Caddy serves the domain over HTTPS with a certificate of its
+own.
+
+## The default domain
+
+**Open**, beside the service's name, opens the service's default domain. **Make default**
+on another domain makes it the default. Until you pick one, Open prefers your own domains
+to the one oxploy [gives a new app](#an-address-for-every-new-app).
 
 ## Options
 

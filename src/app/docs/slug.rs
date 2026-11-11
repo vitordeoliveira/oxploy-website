@@ -3,6 +3,7 @@
 use serde_json::json;
 use topcoat::{
     Result,
+    asset::asset_config,
     context::Cx,
     icon::{icon, iconify::iconify_icon},
     router::{error::RouterErrorExt, module_param, page, path_param},
@@ -20,6 +21,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let slug = path_param::<Slug>(cx)?;
     let entry = docs::find(slug).ok_or_not_found()?;
     let rendered = entry.rendered();
+    let html = rendered.html(asset_config(cx));
     let (previous, next) = entry.neighbors();
     // The page as an article of the documentation, and where it is on the site, for
     // search engines.
@@ -57,7 +59,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
             <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">(entry.title)</h1>
             <p class="mt-3 text-lg text-pretty text-muted-foreground">(entry.summary)</p>
             // The Markdown in `docs/` is the site's own, so its HTML goes in as it is.
-            <div class="prose mt-10">(Unescaped::new_unchecked(rendered.html.as_str()))</div>
+            <div class="prose mt-10">(Unescaped::new_unchecked(html))</div>
             <nav class="mt-16 grid gap-4 border-t border-border pt-8 sm:grid-cols-2" aria-label="Read on">
                 if let Some(previous) = previous {
                     neighbor(target: previous, label: "Previous")

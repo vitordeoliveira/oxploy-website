@@ -10,11 +10,13 @@ lines of its [systemd service](/docs/installation#run-it-as-a-service).
 | `HOST` | `127.0.0.1` | The address the panel listens at. |
 | `PORT` | `3000` | The port the panel listens at. Caddy reaches it there. |
 | `OXPLOY_CADDY_ADMIN` | `127.0.0.1:2019` | Caddy's admin API. |
+| `OXPLOY_CADDY_LOGS` | `127.0.0.1:2020` | Where Caddy sends, over UDP, the requests apps answered with a server error, which oxploy writes in their [logs](/docs/deploying#keep-it-running). |
 | `OXPLOY_HTTP_PORT` | `80` | The port Caddy serves HTTP at. |
 | `OXPLOY_HTTPS_PORT` | `443` | The port Caddy serves HTTPS at. |
 | `OXPLOY_PUBLIC_IP` | found on the machine | The server's public IPv4 addresses, separated by commas, for servers behind NAT. |
 
-Relative paths start from oxploy's working directory.
+Relative paths start from oxploy's working directory. The time zone the panel shows times
+in is not a variable: [Settings picks it](/docs/installation#pick-the-time-zone).
 
 ## What apps get
 
@@ -25,9 +27,15 @@ oxploy starts each app with only these variables, and keeps its own, such as
 | --- | --- |
 | `PORT` | The port the app must listen at, on `127.0.0.1`. |
 | `OXPLOY_STORAGE_DIR` | The app's [storage folder](/docs/storage). |
+| `OXPLOY_MCP_URL` | Where this server's [MCP](/docs/mcp) answers on `127.0.0.1`, for an app that is a client of its organization's MCP. |
+| `OXPLOY_MCP_TOKEN` | The token oxploy calls the [app's MCP server](/docs/app-mcp) with, while its MCP tab has it on. |
+| MCP tokens | An organization's [token made available to apps](/docs/mcp#tokens-for-apps), which a line such as `MCP_TOKEN=${OXPLOY_MCP_TELEGRAM_BOT}` gives the app. |
 | Database variables | Each [database](/docs/storage#sqlite-databases) with a variable. |
 | Your variables | The service's [environment](/docs/deploying#environment-variables). |
 | `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_ALL`, `TZ`, `TMPDIR` | As oxploy has them. |
+
+The service's **Environment** tab lists all of them, as [the app gets
+them](/docs/deploying#environment-variables).
 
 Builds get your variables and the databases', with the ones that find Rust's toolchains,
 such as `CARGO_HOME` and `RUSTUP_HOME`, but not `PORT` or `OXPLOY_STORAGE_DIR`. A build

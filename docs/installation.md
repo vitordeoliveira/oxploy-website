@@ -95,6 +95,8 @@ answers over HTTPS at the server's public IPv4 address, with a certificate Let's
 gives the address for six days at a time and Caddy renews. Create the super admin there
 with the setup code, which keeps whoever opens the address first from taking the server.
 
+![The first-run page, which creates the super admin with the setup code](setup)
+
 If Let's Encrypt cannot reach the server, Caddy signs a certificate itself, which the
 browser warns about. Behind NAT, where the machine does not see its public address, set
 `OXPLOY_PUBLIC_IP` in the service.
@@ -110,5 +112,13 @@ address to connect GitHub from:
 
 The panel keeps answering at the server's address. Each address has its own sign-in, so
 sign in again at the domain.
+
+![The Panel domain and Time zone cards in Settings](settings)
+
+## Pick the time zone
+
+The panel shows times in the server's time zone, UTC on most servers. **Settings** picks
+another one for the panel: its clock, its charts and dates, and the times oxploy writes in
+the apps' logs and backups. The apps keep the server's own.
 
 Next, [connect GitHub](/docs/github).

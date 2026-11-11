@@ -14,6 +14,8 @@ let uploads = std::path::Path::new(&storage).join("uploads");
 
 The **Storage** tab shows what is in it.
 
+![The Storage tab, with the storage folder, a managed database and its backup](storage)
+
 ## SQLite databases
 
 The **Storage** tab also creates SQLite databases in the storage folder and connects them
@@ -26,7 +28,11 @@ to the app, in one of two ways or both:
   each release, at a path from the build path, such as `data.db`.
 
 oxploy connects a new database the next time the app starts. It can also take over a
-database file the app already has in its storage folder.
+database file the app already has in its storage folder: **Manage** beside it.
+
+If the app has migrations, run them in the [script after the
+build](/docs/deploying#run-a-script-after-the-build), which runs with the databases
+already linked.
 
 ## Backups
 

@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod docs;
+pub mod mcp;
 pub mod privacy;
 
 use serde_json::{Value, json};

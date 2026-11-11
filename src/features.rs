@@ -3,4 +3,5 @@
 pub mod admin;
 pub mod analytics;
 pub mod docs;
+pub mod mcp;
 pub mod seo;

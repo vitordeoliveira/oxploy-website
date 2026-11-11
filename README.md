@@ -31,6 +31,14 @@ make the page's table of contents. Link to other pages with their address, such 
 `[Domains](/docs/domains)`. The documentation describes what oxploy does: check what a page
 says against oxploy's code.
 
+A page shows a screenshot of the panel as `![What it shows](name)`, from
+`assets/docs/<name>-light.webp` and `assets/docs/<name>-dark.webp`, and readers get the one
+of their theme. Each is taken at twice the scale, in a window 1024 pixels wide so its text
+stays legible in the page, and listed with its size on the page, half the screenshot's, in
+`src/features/docs/pictures.rs`. Take them on a panel with only example data, never a real
+server's: the panel shows addresses, paths and variables. The tests check that each image a
+page shows is there in both themes.
+
 ## Search engines
 
 Every page gives search engines and link previews the address `https://oxploy.com`,
@@ -71,6 +79,35 @@ After changing a model, generate one with
 `cargo run -- toasty migration generate --name <what_changed>`. Visits older than 400
 days are forgotten.
 
+## MCP
+
+AI agents read the documentation through the [Model Context Protocol](https://modelcontextprotocol.io),
+at two addresses. `/mcp` is public, so anyone's agent can search and read the pages:
+
+| Tool | What it does |
+| --- | --- |
+| `search_docs` | The passages that best match a query, each a page's part under one heading, in Markdown, with its address. |
+| `read_doc` | A whole page, in Markdown, with its links made absolute on `https://oxploy.com`. |
+| `list_docs` | Every page, as the sidebar orders them, with their headings. |
+
+```sh
+claude mcp add --transport http oxploy-docs https://oxploy.com/mcp
+```
+
+`/admin/mcp` is the owner's, and also has `site_visits`, the visits of the last 1 to 90
+days as `/admin` shows them. It takes the token in `OXPLOY_MCP_TOKEN`, sent as
+`Authorization: Bearer <token>`, and a missing or wrong one gets a 401 after a second;
+without the variable, nobody gets in. oxploy reaches it: turn MCP on in the site's
+**MCP** tab at the path `/admin/mcp`, not the default `/mcp`, since Caddy then hides the
+path from the site's domains, and oxploy gives the site the token and passes its tools
+on to the organization's tokens.
+
+Both answer each JSON-RPC message, sent by POST, with plain JSON, with no session and
+no event stream, in `src/app/mcp.rs`. Each tool is a file of its own in `src/app/mcp/`,
+with a line in `definitions` and in `call_tool`. The search, in
+`src/features/docs/search.rs`, cuts the pages at their `##` and `###` headings, and
+weighs the words of a query by how few passages have them.
+
 ## Deploying
 
 The site deploys with oxploy itself, as a service built with cargo: Topcoat apps get their
@@ -83,11 +120,13 @@ assets bundled at each deploy. It listens on `127.0.0.1` at `PORT`, as oxploy ex
 | `src/app.rs` | The router, the layout every page shares, the home page, and the sitemap. |
 | `src/app/docs.rs`, `src/app/docs/` | The documentation's layout, with its sidebar, and its pages. |
 | `src/app/admin.rs` | The admin's page: signing in, and the visits. |
+| `src/app/mcp.rs`, `src/app/mcp/`, `src/app/admin/mcp.rs` | The MCP servers, at `/mcp` and `/admin/mcp`, and their tools. |
 | `src/app/privacy.rs` | The privacy page, and the cookie banner. |
-| `src/features/docs.rs` | The documentation's pages, their order, and their rendering from Markdown. |
+| `src/features/docs.rs`, `src/features/docs/` | The documentation's pages, their order, their rendering from Markdown, their screenshots, and their search. |
 | `src/features/seo.rs` | The site's address, its `robots.txt`, and the structured data in the pages. |
-| `src/features/analytics.rs`, `src/features/admin.rs` | The visits, and the admin's sign-in. |
+| `src/features/analytics.rs`, `src/features/admin.rs`, `src/features/mcp.rs` | The visits, the admin's sign-in, and the owner's MCP token. |
 | `src/db.rs`, `toasty/` | The database, and its migrations. |
 | `src/components/` | Shared UI components. |
 | `docs/` | The documentation's pages, in Markdown. |
+| `assets/docs/` | The screenshots the pages show, in the light and the dark theme. |
 | `styles.css` | The theme, and the styles of the documentation's pages. |

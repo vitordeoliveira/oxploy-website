@@ -98,7 +98,7 @@ pub async fn signed_in(cx: &Cx) -> Result<bool> {
 
 /// Whether two texts are the same, comparing their hashes in full, so the time taken
 /// tells nothing of how much of a guess was right.
-fn same(expected: &str, given: &str) -> bool {
+pub fn same(expected: &str, given: &str) -> bool {
     let (expected, given) = (Sha256::digest(expected), Sha256::digest(given));
     expected
         .iter()

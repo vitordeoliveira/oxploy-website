@@ -1,6 +1,8 @@
 //! The admin's page, at `/admin`: a form to sign in, and once signed in, the site's
 //! visits of the last days.
 
+pub mod mcp;
+
 use jiff::civil::Date;
 use serde::Deserialize;
 use topcoat::{

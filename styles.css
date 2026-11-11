@@ -224,4 +224,11 @@
   .prose blockquote {
     @apply border-l-2 border-primary pl-4 text-muted-foreground;
   }
+  /* Screenshots of the panel, at most as wide as the text, in the reader's theme. */
+  .prose picture img {
+    @apply h-auto max-w-full rounded-xl border border-border shadow-sm;
+  }
+  .prose p:has(> picture:only-child) {
+    @apply my-6;
+  }
 }

@@ -4,10 +4,16 @@
 //! To add a page, write `docs/<slug>.md`, without a `#` title, and list it in
 //! [`SECTIONS`] with its title, a sentence about it, and what search results show.
 
+pub mod pictures;
+pub mod search;
+
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use pulldown_cmark::{CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html};
+use topcoat::asset::AssetConfig;
+
+use crate::features::seo;
 
 /// A page of the documentation.
 pub struct Page {
@@ -114,6 +120,25 @@ pub static SECTIONS: &[Section] = &[
         ],
     },
     Section {
+        title: "AI agents",
+        pages: &[
+            page! {
+                slug: "mcp",
+                title: "MCP",
+                summary: "Let AI agents read the server and call your apps' tools.",
+                search_title: "Connect Claude Code and bots over MCP",
+                description: "oxploy answers MCP at /mcp: Claude Code and bots read the server, its apps' logs and usage, and call their tools, each client with a token of its own.",
+            },
+            page! {
+                slug: "app-mcp",
+                title: "Apps' MCP servers",
+                summary: "Pass the tools of your apps' MCP servers on to agents.",
+                search_title: "Serve MCP from your Rust apps through oxploy",
+                description: "Turn on the MCP server of a Rust app, choose which of its tools reach your organization's MCP, and add MCP servers that run elsewhere over HTTPS.",
+            },
+        ],
+    },
+    Section {
         title: "Server",
         pages: &[
             page! {
@@ -156,12 +181,24 @@ pub struct Heading {
     pub text: String,
     /// Whether it is under another heading, as a `###` is.
     pub nested: bool,
+    /// Where it starts in the page's Markdown.
+    offset: usize,
 }
 
 /// A page as HTML.
 pub struct Rendered {
-    pub html: String,
+    /// The HTML, with markers where the screenshots' addresses go.
+    markup: String,
+    /// The screenshots it shows, by name.
+    pictures: Vec<&'static str>,
     pub headings: Vec<Heading>,
+}
+
+impl Rendered {
+    /// The HTML, showing its screenshots at the addresses `assets` serves them at.
+    pub fn html(&self, assets: &AssetConfig) -> String {
+        pictures::resolve(&self.markup, &self.pictures, assets)
+    }
 }
 
 /// The pages as HTML, rendered once.
@@ -182,6 +219,13 @@ impl Page {
         &RENDERED[self.slug]
     }
 
+    /// The page's Markdown, with its links to the site made absolute, such as
+    /// `https://oxploy.com/docs/domains`, and its screenshots too when `assets` says
+    /// where they are, for those who read it elsewhere.
+    pub fn absolute_markdown(&self, assets: Option<&AssetConfig>) -> String {
+        pictures::absolute(&absolute_links(self.markdown), assets)
+    }
+
     /// The pages before and after this one, for reading on.
     pub fn neighbors(&self) -> (Option<&'static Page>, Option<&'static Page>) {
         let all: Vec<&'static Page> = pages().collect();
@@ -194,19 +238,20 @@ impl Page {
 /// Renders `markdown` to HTML, giving its `##` and `###` headings anchors.
 fn render(markdown: &str) -> Rendered {
     let options = Options::ENABLE_TABLES | Options::ENABLE_HEADING_ATTRIBUTES;
-    let mut events: Vec<Event> = Parser::new_ext(markdown, options).collect();
+    let mut events: Vec<_> = Parser::new_ext(markdown, options).into_offset_iter().collect();
     let mut headings = Vec::new();
     let mut taken = HashMap::<String, usize>::new();
     for start in 0..events.len() {
-        let Event::Start(Tag::Heading { level, id, .. }) = &events[start] else {
+        let (Event::Start(Tag::Heading { level, id, .. }), range) = &events[start] else {
             continue;
         };
+        let offset = range.start;
         if !matches!(level, HeadingLevel::H2 | HeadingLevel::H3) {
             continue;
         }
         let nested = *level == HeadingLevel::H3;
         let mut text = String::new();
-        for event in &events[start + 1..] {
+        for (event, _) in &events[start + 1..] {
             match event {
                 Event::Text(part) | Event::Code(part) => text.push_str(part),
                 Event::End(TagEnd::Heading(_)) => break,
@@ -222,14 +267,45 @@ fn render(markdown: &str) -> Rendered {
                 if *count == 1 { base } else { format!("{base}-{count}") }
             }
         };
-        if let Event::Start(Tag::Heading { id: slot, .. }) = &mut events[start] {
+        if let (Event::Start(Tag::Heading { id: slot, .. }), _) = &mut events[start] {
             *slot = Some(CowStr::from(id.clone()));
         }
-        headings.push(Heading { id, text, nested });
+        headings.push(Heading { id, text, nested, offset });
     }
-    let mut out = String::new();
-    html::push_html(&mut out, events.into_iter());
-    Rendered { html: out, headings }
+    // A screenshot named in an image, such as `![The Domains tab](domains)`, becomes
+    // a picture in both themes.
+    let mut shown = Vec::new();
+    let mut picturing = None;
+    let mut alt = String::new();
+    let mut out_events = Vec::with_capacity(events.len());
+    for (event, _) in events {
+        match event {
+            Event::Start(Tag::Image { ref dest_url, .. }) if picturing.is_none() => match pictures::find(dest_url) {
+                Some(picture) => {
+                    picturing = Some(picture);
+                    alt.clear();
+                }
+                None => out_events.push(event),
+            },
+            Event::Text(text) | Event::Code(text) if picturing.is_some() => alt.push_str(&text),
+            Event::End(TagEnd::Image) if picturing.is_some() => {
+                let picture = picturing.take().expect("a picture is open");
+                out_events.push(Event::InlineHtml(pictures::html(&picture, &alt).into()));
+                shown.push(picture.name);
+            }
+            _ if picturing.is_some() => {}
+            event => out_events.push(event),
+        }
+    }
+    let mut markup = String::new();
+    html::push_html(&mut markup, out_events.into_iter());
+    Rendered { markup, pictures: shown, headings }
+}
+
+/// `markdown` with its links to the site's pages, such as `/docs/domains`, made
+/// absolute on [`seo::ORIGIN`].
+fn absolute_links(markdown: &str) -> String {
+    markdown.replace("](/", &format!("]({}/", seo::ORIGIN))
 }
 
 /// An anchor for a heading's text, such as `run-it-as-a-service`.
@@ -255,7 +331,23 @@ mod tests {
         let ids: Vec<&str> = rendered.headings.iter().map(|heading| heading.id.as_str()).collect();
         assert_eq!(ids, ["run-it-as-a-service", "port", "run-it-as-a-service-2", "own"]);
         assert!(rendered.headings[1].nested);
-        assert!(rendered.html.contains(r#"<h2 id="run-it-as-a-service">"#));
+        assert!(rendered.markup.contains(r#"<h2 id="run-it-as-a-service">"#));
+    }
+
+    #[test]
+    fn headings_know_where_they_start() {
+        let markdown = "Intro\n\n## First\n\ntext\n\n### Second\n";
+        let rendered = render(markdown);
+        assert!(markdown[rendered.headings[0].offset..].starts_with("## First"));
+        assert!(markdown[rendered.headings[1].offset..].starts_with("### Second"));
+    }
+
+    #[test]
+    fn links_to_the_site_become_absolute() {
+        assert_eq!(
+            absolute_links("See [Storage](/docs/storage#backups) and [Caddy](https://caddyserver.com)."),
+            "See [Storage](https://oxploy.com/docs/storage#backups) and [Caddy](https://caddyserver.com)."
+        );
     }
 
     #[test]
@@ -270,9 +362,28 @@ mod tests {
     }
 
     #[test]
+    fn screenshots_become_pictures() {
+        let rendered = render("Before.\n\n![The `Domains` tab](domains)\n");
+        assert_eq!(rendered.pictures, ["domains"]);
+        assert!(rendered.markup.contains(r#"<img src="oxploy-picture:domains:light" alt="The Domains tab""#), "{}", rendered.markup);
+        assert!(!rendered.markup.contains("](domains)"));
+    }
+
+    #[test]
+    fn every_image_is_a_screenshot() {
+        for page in pages() {
+            for event in Parser::new(page.markdown) {
+                if let Event::Start(Tag::Image { dest_url, .. }) = event {
+                    assert!(pictures::find(&dest_url).is_some(), "{} shows {dest_url}, which is not in assets/docs", page.slug);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn every_page_renders() {
         for page in pages() {
-            assert!(!page.rendered().html.is_empty(), "{} is empty", page.slug);
+            assert!(!page.rendered().markup.is_empty(), "{} is empty", page.slug);
             assert!(!page.markdown.trim_start().starts_with("# "), "{} has its own title", page.slug);
         }
     }

@@ -24,6 +24,9 @@ Each app runs in a process group of its own, so it keeps running while oxploy st
 restarts or updates itself. oxploy writes down each app's process and takes it back
 when it starts again.
 
+The panel also answers [MCP](/docs/mcp) at `/mcp`, so AI agents such as Claude Code or a
+bot can read the server and call the tools of your apps.
+
 ## What a deploy does
 
 1. oxploy fetches the branch from GitHub, through the GitHub App you connected.
@@ -41,10 +44,21 @@ time on the machine, and the others wait their turn.
 
 A **service** is one app: a repository and branch, built into one binary. **Projects**
 group services, such as the API and the workers of one product, and projects belong to an
-**organization**. The super admin, the first user, owns the server: only they see its
-settings and its monitoring.
+**organization**.
+
+![A project with two services, one running and one not deployed yet](project)
+
+Organizations keep separate sets of projects, with their own [GitHub
+accounts](/docs/github) and [MCP tokens](/docs/mcp#organization-tokens). The switcher at
+the top of the sidebar changes the one you work in, and makes, renames or deletes them,
+with a logo of your own; the default organization is the one the panel opens in, and the
+last one cannot be deleted.
+
+The super admin, the first user, owns the server: only they see its settings, its
+monitoring and its own [MCP tokens](/docs/mcp#server-tokens).
 
 ## Next steps
 
 - [Install oxploy](/docs/installation) on a Linux server.
 - [Connect GitHub](/docs/github), then [deploy a service](/docs/deploying).
+- [Connect Claude Code](/docs/mcp#connect-claude-code) to the server.

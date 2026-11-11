@@ -1,0 +1,8 @@
+{
+  "name": "oxploy-docs-screenshots",
+  "private": true,
+  "description": "Takes the screenshots of the panel the documentation shows.",
+  "dependencies": {
+    "puppeteer-core": "24.10.0"
+  }
+}
