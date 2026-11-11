@@ -29,8 +29,11 @@ use crate::features::seo;
 /// oxploy's repository, where its code and releases are.
 pub const REPOSITORY: &str = "https://github.com/vitordeoliveira/oxploy";
 
-/// The command that downloads the latest release, as the installation guide runs it.
-const DOWNLOAD: &str = "curl -L https://github.com/vitordeoliveira/oxploy/releases/latest/download/oxploy-x86_64-linux.tar.gz | tar xz -C /opt/oxploy";
+/// The script that installs oxploy on a server, served at `/install.sh`.
+const INSTALL_SCRIPT: &str = include_str!("../install.sh");
+
+/// The command that installs oxploy, as the installation guide runs it.
+const INSTALL: &str = "curl -sSL https://oxploy.com/install.sh | sh";
 
 /// The oxploy logo, a cog like the one in the Rust logo, as in the panel.
 const LOGO: IconData = iconify_icon!("lucide:cog");
@@ -79,6 +82,12 @@ fn listed_pages() -> impl Iterator<Item = String> {
 #[route(GET "./sitemap.xml")]
 async fn sitemap() -> Result<Sitemap> {
     Ok(Sitemap::new().urls(listed_pages().map(|path| seo::url(&path))))
+}
+
+/// The script that installs oxploy, which `INSTALL` pipes to a shell.
+#[route(GET "./install.sh")]
+async fn install_script() -> Result<String> {
+    Ok(INSTALL_SCRIPT.to_owned())
 }
 
 /// What crawlers may read, and where the sitemap is.
@@ -271,7 +280,7 @@ const FAQ: [(&str, &str); 6] = [
     ),
     (
         "What does the server need?",
-        "Linux on x86_64, git, Rust installed with rustup, a C compiler, and Caddy. oxploy itself is a binary with a folder of assets beside it.",
+        "Linux on x86_64, git, Rust installed with rustup, a C compiler, and Caddy. On Debian or Ubuntu, the install script sets all of it up; on a Mac, oxploy runs from its source code. oxploy itself is a binary with a folder of assets beside it.",
     ),
     (
         "Can one server run many apps?",
@@ -353,8 +362,8 @@ async fn home() -> Result<impl View> {
                             </a>
                         </div>
                         <div class="w-full max-w-xl">
-                            <p class="mb-2 text-xs font-medium text-muted-foreground">"Download the latest release on a Linux server"</p>
-                            <pre class="rounded-lg border border-border bg-card px-4 py-3 font-mono text-xs leading-6 break-all whitespace-pre-wrap"><code><span class="text-muted-foreground select-none">"$ "</span>(DOWNLOAD)</code></pre>
+                            <p class="mb-2 text-xs font-medium text-muted-foreground">"Install it on a Debian or Ubuntu server, as root"</p>
+                            <pre class="rounded-lg border border-border bg-card px-4 py-3 font-mono text-xs leading-6 break-all whitespace-pre-wrap"><code><span class="text-muted-foreground select-none">"$ "</span>(INSTALL)</code></pre>
                         </div>
                     </div>
                     deploy_log()
@@ -429,7 +438,7 @@ async fn home() -> Result<impl View> {
                         step(
                             number: 1,
                             title: "Install it",
-                            text: "Download the release, run it as a systemd service and install Caddy. The panel opens over HTTPS at the server's address, and a setup code from its log makes you its owner."
+                            text: "One command installs Rust, Caddy and oxploy as a systemd service. The panel opens over HTTPS at the server's address, and the setup code it prints makes you its owner."
                         )
                         step(
                             number: 2,
@@ -634,4 +643,20 @@ async fn question(asked: &str, answer: &str) -> Result<impl View> {
             <p class="mt-3 text-sm text-muted-foreground">(answer)</p>
         </details>
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_install_script_is_valid_sh() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/install.sh");
+        let checked = std::process::Command::new("sh").arg("-n").arg(path).output().unwrap();
+        assert!(checked.status.success(), "{}", String::from_utf8_lossy(&checked.stderr));
+        assert!(INSTALL_SCRIPT.starts_with("#!/bin/sh\n"));
+        // A download cut short defines functions but runs none of them.
+        assert_eq!(INSTALL_SCRIPT.trim_end().lines().last(), Some("main \"$@\""));
+        assert!(INSTALL.ends_with("/install.sh | sh"));
+    }
 }

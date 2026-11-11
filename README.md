@@ -108,6 +108,14 @@ with a line in `definitions` and in `call_tool`. The search, in
 `src/features/docs/search.rs`, cuts the pages at their `##` and `###` headings, and
 weighs the words of a query by how few passages have them.
 
+## The install script
+
+`install.sh` is what `curl -sSL https://oxploy.com/install.sh | sh` runs, served at
+`/install.sh`: it installs oxploy on a Debian or Ubuntu server, as the installation page
+describes by hand. It is POSIX `sh`, since the pipe runs it with the server's `sh`, such
+as dash, and does all its work in `main`, called on its last line, so a download cut short
+runs nothing. A change to it goes in the page too.
+
 ## Deploying
 
 The site deploys with oxploy itself, as a service built with cargo: Topcoat apps get their

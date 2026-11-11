@@ -74,8 +74,8 @@ pub static SECTIONS: &[Section] = &[
                 slug: "installation",
                 title: "Installation",
                 summary: "Install oxploy and Caddy on a Linux server, and set it up.",
-                search_title: "Install oxploy and Caddy on a Linux server",
-                description: "Install oxploy on Ubuntu or Debian: prepare git and Rust, install Caddy, run oxploy as a systemd service and open its panel over HTTPS with the setup code.",
+                search_title: "Install oxploy on Linux with one command",
+                description: "Install oxploy on Ubuntu or Debian with one command, or by hand: git and Rust, Caddy, oxploy as a systemd service, and its panel over HTTPS.",
             },
             page! {
                 slug: "github",
