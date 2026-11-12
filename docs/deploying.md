@@ -88,14 +88,35 @@ are oxploy's, and so is `PORT`.
 
 Below the editor, **What the app gets** lists every variable the app gets when it runs,
 with `${NAME}` filled in, grouped by where each comes from: yours, the ones oxploy sets,
-the [databases](/docs/storage#sqlite-databases) of the Storage tab, the organization's
-[MCP tokens](/docs/mcp#tokens-for-apps) it can use, and the few oxploy passes on from the
-server, such as `PATH`. The values that may be secret stay blurred until you show them.
+the [databases](/docs/storage#sqlite-databases) of the Storage tab, the project's other
+apps, the organization's [MCP tokens](/docs/mcp#tokens-for-apps) it can use, and the few
+oxploy passes on from the server, such as `PATH`. The values that may be secret stay
+blurred until you show them.
 
 ![What the app gets, with the variables grouped by where they come from](environment)
 
 Builds get the same, except `PORT` and `OXPLOY_STORAGE_DIR`, which reach only the app and
 the script after the build. See [Configuration](/docs/configuration#what-apps-get).
+
+### Reach another app of the project
+
+A value can also use where another app of the same project answers. Each app has three
+variables, named after its app name, which comes from the project's and the service's
+names when the service is made and stays the same if you rename them:
+
+```sh
+# The project Shop has the apps API and Web. In Web's Environment tab:
+API_URL=${OXPLOY_SHOP_API_URL}
+API_HOST=${OXPLOY_SHOP_API_HOST}
+API_PORT=${OXPLOY_SHOP_API_PORT}
+```
+
+Web then gets `API_URL=http://127.0.0.1:10002`, `API_HOST=127.0.0.1` and
+`API_PORT=10002`. An app gets them only from a line that uses them, so it reads them
+under the names its code expects. An app has its port from the moment it is made, so
+another app can use it before its first deploy. An app of another project is not offered,
+and saving a line that uses one says so. If the app is deleted later, the variables that
+used it are empty.
 
 ## Run a script after the build
 

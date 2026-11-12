@@ -31,6 +31,7 @@ oxploy starts each app with only these variables, and keeps its own, such as
 | `OXPLOY_MCP_URL` | Where this server's [MCP](/docs/mcp) answers on `127.0.0.1`, for an app that is a client of its organization's MCP. |
 | `OXPLOY_MCP_TOKEN` | The token oxploy calls the [app's MCP server](/docs/app-mcp) with, while its MCP tab has it on. |
 | MCP tokens | An organization's [token made available to apps](/docs/mcp#tokens-for-apps), which a line such as `MCP_TOKEN=${OXPLOY_MCP_TELEGRAM_BOT}` gives the app. |
+| Other apps of the project | Where [another app of the project](/docs/deploying#reach-another-app-of-the-project) answers, which a line such as `API_URL=${OXPLOY_SHOP_API_URL}` gives the app. |
 | Database variables | Each [database](/docs/storage#sqlite-databases) with a variable. |
 | Your variables | The service's [environment](/docs/deploying#environment-variables). |
 | `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_ALL`, `TZ`, `TMPDIR` | As oxploy has them. |
