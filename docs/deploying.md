@@ -1,7 +1,8 @@
-A service is one app: a repository and branch that oxploy builds into a binary and runs.
-Create a project under **Projects**, then a service in it with **New service**. A
-service is a **Rust app**, which this page is about, or an [external MCP
-server](/docs/app-mcp#external-mcp-servers), which runs elsewhere.
+A service is one app: a repository and branch that oxploy builds and runs. Create a
+project under **Projects**, then a service in it with **New service**. A service is a
+**Rust app**, built into a binary, a [Docker app](#docker-apps), built into an image that
+runs in a container, or an [external MCP server](/docs/app-mcp#external-mcp-servers),
+which runs elsewhere. This page is about the first two.
 
 ![The New service dialog, with a Rust app named shop-web](new-service)
 
@@ -15,8 +16,8 @@ let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_owned());
 let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}")).await?;
 ```
 
-The service keeps its port, from 10000 to 19999, from its first deploy on. An app that
-never listens, such as a worker, still runs; its deploy notes that nothing answers.
+The service keeps its port, from 10000 to 19999, from when it is made. An app that never
+listens, such as a worker, still runs; its deploy notes that nothing answers.
 
 ## Choose the source
 
@@ -26,8 +27,8 @@ and the **build path**: the folder the build runs in, such as the one with the
 
 ## Choose how it builds
 
-The **Build** card has three ways to get the binary, one tab each. Saving a tab switches
-the service to it.
+The **Build** card has four ways to build the app, one tab each. Saving a tab switches the
+service to it, keeping its name, port, domains, variables and storage.
 
 ![The Build card's Cargo tab, with its Rust version, binary and features, and the command they make](build-cargo)
 
@@ -47,6 +48,8 @@ folder in `OXPLOY_OUTPUT_DIR`. Give the binary's file name beside the script, an
 starts that file.
 
 **GitHub release** builds nothing on the server: see the next section.
+
+**Dockerfile** builds an image and runs it in a container: see [Docker apps](#docker-apps).
 
 ## Deploy GitHub releases
 
@@ -69,6 +72,59 @@ oxploy downloads the file through the GitHub App, and checks it against the rele
 `.sha256` of the file when there is one. A binary built for another machine, such as a
 macOS one on a Linux server, fails its deployment before the running release stops. The
 tab says which machine the server is, such as `x86_64 Linux`.
+
+## Docker apps
+
+A service can be any app with a Dockerfile, in any language, when the server has Docker.
+Choose **Docker app** in **New service**, or the **Dockerfile** tab of the **Build** card.
+Without Docker, the option says so; see [Installation](/docs/installation#docker-apps).
+
+- **Dockerfile**: from the build path, `Dockerfile` unless you name another, such as
+  `deploy/Dockerfile`.
+- **Container port**: the port the app listens on in its container. Left empty, it is the
+  service's own port.
+
+Deploying runs `docker build` in the build path, which is also what the build sees. The
+build gets none of your variables. The container gets them when it starts, with `PORT` set
+to the container port and `HOST` to `0.0.0.0`, so a web app listens on every address of
+its container. oxploy publishes the container port on `127.0.0.1`, at the service's port,
+where Caddy sends its traffic, as for a Rust app:
+
+```dockerfile
+FROM node:22-slim
+WORKDIR /app
+COPY . .
+RUN npm ci --omit=dev
+CMD ["node", "server.js"]
+```
+
+```js
+// server.js
+require("http")
+  .createServer((req, res) => res.end("hello"))
+  .listen(process.env.PORT, process.env.HOST);
+```
+
+The container also gets the service's storage folder, at the same path as on the server,
+in `OXPLOY_STORAGE_DIR`, so its data and its [databases](/docs/storage#sqlite-databases)
+survive deploys. A database reaches it through its variable; a link in the release does
+not reach a container. The container gets none of the server's own variables, such as
+`PATH`, which its image sets.
+
+Each project has a Docker network of its own. Its containers join it under their app name,
+so they reach each other directly, as `http://shop-api:8080`, and no container of another
+project reaches them. The [variables of the project's other
+apps](#reach-another-app-of-the-project) give that address.
+
+oxploy runs the container as it runs a binary: it starts it again after it exits, keeps it
+running while the panel restarts, and removes it when it stops. Its output is in the
+**Logs** tab. The **script after the build** runs in a container of the new image, with
+the app's variables and storage, so the image needs `sh`. oxploy keeps the images of the
+live release and the two before it, and deletes the older ones.
+
+For now, a container does not reach what listens on the server's `127.0.0.1`: the Rust
+apps of its project, and the panel's [MCP](/docs/mcp), in `OXPLOY_MCP_URL`. The
+**Monitoring** tab does not measure a container's CPU and memory yet.
 
 ## Environment variables
 
@@ -112,11 +168,13 @@ API_PORT=${OXPLOY_SHOP_API_PORT}
 ```
 
 Web then gets `API_URL=http://127.0.0.1:10002`, `API_HOST=127.0.0.1` and
-`API_PORT=10002`. An app gets them only from a line that uses them, so it reads them
-under the names its code expects. An app has its port from the moment it is made, so
-another app can use it before its first deploy. An app of another project is not offered,
-and saving a line that uses one says so. If the app is deleted later, the variables that
-used it are empty.
+`API_PORT=10002`. When both run in [Docker](#docker-apps), Web gets the address on their
+project's network instead, such as `http://shop-api:8080`, and when Web runs in Docker
+and API does not, the tab says Web cannot reach it yet. An app gets them only from a line
+that uses them, so it reads them under the names its code expects. An app has its port
+from the moment it is made, so another app can use it before its first deploy. An app of
+another project is not offered, and saving a line that uses one says so. If the app is
+deleted later, the variables that used it are empty.
 
 ## Run a script after the build
 

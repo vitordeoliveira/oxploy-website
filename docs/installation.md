@@ -108,6 +108,20 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now oxploy
 ```
 
+### Docker apps
+
+To also run [Docker apps](/docs/deploying#docker-apps), install
+[Docker](https://docs.docker.com/engine/install/) and add oxploy's user to the `docker`
+group, then restart oxploy:
+
+```sh
+sudo usermod -aG docker oxploy
+sudo systemctl restart oxploy
+```
+
+The `docker` group lets oxploy do anything on the server, as root can, so add it only if
+you run Docker apps. Rust apps need neither.
+
 ## On macOS
 
 oxploy's code builds on macOS too, but its releases are for Linux only, so on a Mac, such
