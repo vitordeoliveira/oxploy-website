@@ -126,6 +126,14 @@ For now, a container does not reach what listens on the server's `127.0.0.1`: th
 apps of its project, and the panel's [MCP](/docs/mcp), in `OXPLOY_MCP_URL`. The
 **Monitoring** tab does not measure a container's CPU and memory yet.
 
+### Projects are not a security boundary
+
+A container reaches another project's containers by neither name nor variable. But on
+Docker Desktop, a container that knows the IP of another project's container still
+reaches it, and native apps share the server's `127.0.0.1`, where every app's port
+answers. From outside the server, apps are reached only through Caddy, at their domains.
+Run on one server only apps you trust together.
+
 ## Environment variables
 
 The **Environment** tab holds the service's variables, one `NAME=value` per line, as in a
