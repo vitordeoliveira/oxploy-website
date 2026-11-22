@@ -53,14 +53,19 @@ starts that file.
 
 ## Deploy GitHub releases
 
-A small server builds slowly. A service can instead deploy a file of its repository's
-latest GitHub release, built elsewhere, such as in GitHub Actions. The branch and the
-build path do not apply then.
+A small server builds slowly. A service can instead deploy a file of one of its
+repository's GitHub releases, built elsewhere, such as in GitHub Actions. The branch and
+the build path do not apply then.
 
 ![The Build card's GitHub release tab, with a file name, its binary and Deploy new releases on](build-release)
 
-- **File**: the release's file, chosen from the latest release's, or typed. A `*` stands
-  for any text, such as the version in `shop-api-*-x86_64-linux.tar.gz`.
+- **Tag**: which release. Empty deploys the repository's latest release, as GitHub marks
+  it: the newest that is neither a draft nor a prerelease. A tag deploys the newest
+  release tagged like it, prereleases too, among the repository's last 100. A `*` stands
+  for any text without a dash, so `v*` matches `v1.4.0` and leaves out `v1.4.0-beta.1`,
+  which `v*-beta.*` matches. See [staging and production](#staging-and-production).
+- **File**: the release's file, chosen from that release's, or typed. A `*` stands for
+  any text, such as the version in `shop-api-*-x86_64-linux.tar.gz`.
 - **Binary**: the file is the binary itself, or a `.tar.gz` with it inside; then choose
   the binary among the files in the archive that can run, such as `shop-api` or
   `bin/shop-api`. It runs with the files beside it, such as a Topcoat app's assets.
@@ -72,6 +77,21 @@ oxploy downloads the file through the GitHub App, and checks it against the rele
 `.sha256` of the file when there is one. A binary built for another machine, such as a
 macOS one on a Linux server, fails its deployment before the running release stops. The
 tab says which machine the server is, such as `x86_64 Linux`.
+
+### Staging and production
+
+Two services of one repository can follow two lines of releases, with the same file and
+different tags. A monorepo that tags `shop-api/v1.4.0` for production and
+`shop-api/v1.4.0-beta.1` for a beta gets:
+
+| Service | Tag | Deploys |
+|---|---|---|
+| `shop-api` | `shop-api/v*` | the newest `shop-api/v1.4.0`, never a beta |
+| `shop-api-staging` | `shop-api/v*-beta.*` | the newest `shop-api/v1.4.0-beta.1` |
+
+A beta can be a prerelease on GitHub, which keeps it out of the repository's latest
+release, as long as it has the file. With **Deploy new releases** on, each service
+deploys its line on its own.
 
 ## Docker apps
 
